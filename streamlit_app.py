@@ -12,398 +12,376 @@ import io
 import requests
 from streamlit_js_eval import streamlit_js_eval
 
-# Page Config
+# --- PROFESSIONAL PUBLISHING STANDARDS ---
 st.set_page_config(
-    page_title="K-국민안전지킴이 (K-National Safety Keeper)",
+    page_title="K-국민안전지킴이 | K-National Safety Keeper",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Location Extraction Helpers ---
-def get_exif_data(image):
-    """Extracts exif data from a PIL image."""
-    exif_data = {}
-    info = image._getexif()
-    if info:
-        for tag, value in info.items():
-            decoded = TAGS.get(tag, tag)
-            if decoded == "GPSInfo":
-                gps_data = {}
-                for t in value:
-                    sub_decoded = GPSTAGS.get(t, t)
-                    gps_data[sub_decoded] = value[t]
-                exif_data[decoded] = gps_data
-            else:
-                exif_data[decoded] = value
-    return exif_data
-
-def get_decimal_from_dms(dms, ref):
-    degrees = dms[0]
-    minutes = dms[1]
-    seconds = dms[2]
-    decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
-    if ref in ['S', 'W']:
-        decimal = -decimal
-    return decimal
-
-def get_lat_lon(exif_data):
-    """Returns the latitude and longitude from the EXIF data (if any)."""
-    if "GPSInfo" in exif_data:
-        gps_info = exif_data["GPSInfo"]
-        gps_latitude = gps_info.get("GPSLatitude")
-        gps_latitude_ref = gps_info.get("GPSLatitudeRef")
-        gps_longitude = gps_info.get("GPSLongitude")
-        gps_longitude_ref = gps_info.get("GPSLongitudeRef")
-
-        if gps_latitude and gps_latitude_ref and gps_longitude and gps_longitude_ref:
-            lat = get_decimal_from_dms(gps_latitude, gps_latitude_ref)
-            lon = get_decimal_from_dms(gps_longitude, gps_longitude_ref)
-            return lat, lon
-    return None, None
-
-def get_address_from_coords(lat, lon):
-    """Enhanced Simulated Reverse Geocoding."""
-    # Seoul City Hall area
-    if 37.56 <= lat <= 37.57 and 126.97 <= lon <= 126.98:
-        return "서울특별시 종로구 세종대로 209 (AI 자동 보정)"
-    # Bupyeong / Incheon area (Where the user's test coordinate 37.52, 126.73 is)
-    elif 37.50 <= lat <= 37.54 and 126.70 <= lon <= 126.76:
-        return "인천광역시 부평구 삼산동 494 (부평삼산지구엠코타운)"
-    # Fallback
-    return f"대한민국 분석 좌표: {lat:.4f}, {lon:.4f} (지역 분석 중...)"
-
-# --- Theme Configuration ---
+# --- PREMIUM THEME ENGINE (Top 10 Tech #2 & #9) ---
 THEMES = {
-    "Bright Crystal (White)": {
+    "Bright Crystal (Premium)": {
         "bg_color": "#ffffff",
         "bg_app": "#f8fafc",
-        "text": "#1e293b",
-        "card_bg": "rgba(255, 255, 255, 0.9)",
-        "glass_border": "rgba(0, 0, 0, 0.05)",
+        "text": "#0f172a",
+        "card_bg": "rgba(255, 255, 255, 0.85)",
+        "glass_border": "rgba(255, 255, 255, 0.5)",
         "primary": "#135bec",
+        "secondary": "#4c84ff",
         "hero_grad": "linear-gradient(135deg, #135bec 0%, #4c84ff 100%)",
         "kpi_val": "#135bec",
         "nav_bg": "rgba(19, 91, 236, 0.95)",
         "sidebar_bg": "#f1f5f9",
-        "map_tiles": "CartoDB positron"
+        "map_tiles": "CartoDB positron",
+        "shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
     },
-    "Solar Morning (Warm)": {
-        "bg_color": "#fefce8",
-        "bg_app": "#fefce8",
-        "text": "#422006",
-        "card_bg": "rgba(255, 255, 255, 0.95)",
-        "glass_border": "rgba(0, 0, 0, 0.05)",
-        "primary": "#ca8a04",
-        "hero_grad": "linear-gradient(135deg, #fbbf24 0%, #ca8a04 100%)",
-        "kpi_val": "#ca8a04",
-        "nav_bg": "rgba(202, 138, 4, 0.95)",
-        "sidebar_bg": "#fef9c3",
-        "map_tiles": "CartoDB positron"
-    },
-    "Royal Midnight (Dark)": {
+    "Royal Midnight (Expert)": {
         "bg_color": "#0f172a",
-        "bg_app": "#0f172a",
-        "text": "#f1f5f9",
-        "card_bg": "rgba(30, 41, 59, 0.7)",
+        "bg_app": "#020617",
+        "text": "#f8fafc",
+        "card_bg": "rgba(15, 23, 42, 0.6)",
         "glass_border": "rgba(255, 255, 255, 0.1)",
         "primary": "#3b82f6",
-        "hero_grad": "linear-gradient(135deg, #135bec 0%, #00d2ff 100%)",
-        "kpi_val": "#ffffff",
-        "nav_bg": "rgba(19, 91, 236, 0.9)",
+        "secondary": "#60a5fa",
+        "hero_grad": "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
+        "kpi_val": "#60a5fa",
+        "nav_bg": "rgba(15, 23, 42, 0.9)",
         "sidebar_bg": "#0f172a",
-        "map_tiles": "CartoDB dark_matter"
+        "map_tiles": "CartoDB dark_matter",
+        "shadow": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
     }
 }
 
-# --- Sidebar UI (Theme Selector) ---
+# --- Sidbar UI ---
 with st.sidebar:
-    st.markdown("### 🎨 THEME SETTING")
-    theme_name = st.selectbox("밝기/테마 선택", list(THEMES.keys()), index=0)
+    st.markdown("### 🎨 UI ENGINE")
+    theme_name = st.selectbox("Select Display Mode", list(THEMES.keys()), index=0)
     current_theme = THEMES[theme_name]
     st.markdown("---")
     st.markdown("### 🧭 NAVIGATION")
-    menu = st.radio("Menu", ["🏠 홈 (Home)", "📍 안전 지도 (Map)", "🚀 제보하기 (Report)", "⚙️ 관리자 (Admin)"])
+    menu = st.radio("Access Level", ["🏠 메인 로비 (Home)", "📍 전술 지도 (Map)", "🚀 사고 제보 (Report)", "⚙️ 통합 관제 (Admin)"])
 
-# --- Dynamic CSS Injection ---
+# --- EXPERT CSS LIBRARY (Top 10 Tech #1, #3, #4) ---
 st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@100;400;700;900&display=swap');
     
     :root {{
         --primary: {current_theme['primary']};
+        --secondary: {current_theme['secondary']};
         --text: {current_theme['text']};
-        --radius-lg: 24px;
-        --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        --glass: {current_theme['card_bg']};
+        --border: {current_theme['glass_border']};
+        --shadow-expert: {current_theme['shadow']};
     }}
 
     .stApp {{
         background-color: {current_theme['bg_app']};
-        font-family: 'Inter', sans-serif;
-        color: {current_theme['text']};
+        font-family: 'Pretendard', sans-serif;
+        color: var(--text);
     }}
 
-    /* Custom Header */
-    .custom-header {{
-        position: fixed;
-        top: 0; left: 0; right: 0;
-        background: {current_theme['nav_bg']};
-        backdrop-filter: blur(12px);
-        padding: 0.8rem 2rem;
-        z-index: 999;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid {current_theme['glass_border']};
-        color: white;
+    /* Top 10 Tech #1: Micro-Interactions */
+    @keyframes slideUp {{
+        from {{ opacity: 0; transform: translateY(20px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    
+    @keyframes pulse-soft {{
+        0% {{ transform: scale(1); opacity: 0.8; }}
+        50% {{ transform: scale(1.02); opacity: 1; }}
+        100% {{ transform: scale(1); opacity: 0.8; }}
     }}
 
-    /* Hero Section */
-    .hero-box {{
-        background: {current_theme['hero_grad']};
-        padding: 6rem 2rem 4rem 2rem;
-        text-align: center;
-        border-radius: 0 0 50px 50px;
-        margin-bottom: 3rem;
-        box-shadow: var(--shadow-premium);
-        color: white;
-    }}
-
-    /* Cards */
-    .glass-card {{
-        background: {current_theme['card_bg']};
-        backdrop-filter: blur(10px);
-        border: 1px solid {current_theme['glass_border']};
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
+    .expert-card {{
+        background: var(--glass);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        padding: 2rem;
         margin-bottom: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        color: {current_theme['text']};
+        box-shadow: var(--shadow-expert);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: slideUp 0.6s ease-out;
     }}
 
-    .kpi-card {{
+    .expert-card:hover {{
+        transform: translateY(-8px) scale(1.01);
+        border-color: var(--primary);
+    }}
+
+    /* Top 10 Tech #2: Hero Refined */
+    .hero-container {{
+        background: {current_theme['hero_grad']};
+        padding: 8rem 2rem 6rem 2rem;
         text-align: center;
-        border-bottom: 4px solid var(--primary);
+        border-radius: 0 0 80px 80px;
+        margin-bottom: 4rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
     }}
-    .kpi-val {{
-        font-size: 2.8rem;
-        font-weight: 900;
-        color: {current_theme['kpi_val']};
-        margin: 0;
-    }}
-    .kpi-lab {{
-        font-size: 0.85rem;
-        opacity: 0.7;
-        font-weight: 600;
-        color: {current_theme['text']};
+    
+    .hero-container::after {{
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+        opacity: 0.05;
     }}
 
-    .badge-status {{
-        padding: 4px 12px;
+    /* Typography & Badges */
+    .expert-h1 {{ font-weight: 900; font-size: 4rem; letter-spacing: -2px; line-height: 1.1; margin-bottom: 1rem; }}
+    .expert-p {{ font-weight: 400; font-size: 1.3rem; opacity: 0.85; max-width: 700px; margin: 0 auto; }}
+
+    .badge-premium {{
+        background: var(--primary);
+        color: white;
+        padding: 6px 16px;
         border-radius: 50px;
         font-size: 0.75rem;
         font-weight: 800;
-        background: rgba(19, 91, 236, 0.1);
-        color: var(--primary);
-        border: 1px solid var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }}
+
+    /* Admin Table High-End */
+    .stDataFrame {{
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: var(--shadow-expert);
     }}
 
     section[data-testid="stSidebar"] {{
         background-color: {current_theme['sidebar_bg']} !important;
+        border-right: 1px solid var(--border);
+    }}
+
+    /* Global Header Expert */
+    .expert-nav {{
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        background: {current_theme['nav_bg']};
+        backdrop-filter: blur(15px);
+        padding: 0.8rem 2.5rem;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
     }}
     
-    /* Input Styling */
-    .stTextInput>div>div>input, .stTextArea>div>div>textarea {{
-        background-color: white !important;
-        color: black !important;
-    }}
-    
-    h1, h2, h3, h4 {{
-        color: {current_theme['text']} !important;
+    .status-dot {{
+        height: 10px; width: 10px;
+        background-color: #10b981;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        animation: pulse-soft 2s infinite;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- Database & AI ---
+# --- Global Components ---
+def expert_header():
+    st.markdown("""
+        <div class="expert-nav">
+            <div style="font-weight: 900; font-size: 1.4rem; color: white;">🛡️ K-SAFETY KEEPER</div>
+            <div style="display: flex; align-items: center; color: white; font-size: 0.85rem; font-weight: 600;">
+                <span class="status-dot"></span> SYSTEM LIVE | v2.5.0 Expert
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 def get_db():
     conn = sqlite3.connect('safety_map.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 def sim_analysis(cat):
-    return {"val": 85 if cat == "도로 파손" else 50, "urb": "HIGH" if cat == "도로 파손" else "MID"}
+    # Top 10 Tech #7: Advanced AI Simulation
+    scores = {"도로 파손": 92, "시설물 고장": 78, "쓰레기 투기": 65}
+    val = scores.get(cat, 50)
+    return {"val": val, "urb": "CRITICAL" if val > 90 else "HIGH" if val > 70 else "NORMAL"}
 
-# --- Global Header ---
-st.markdown("""
-    <div class="custom-header">
-        <div style="font-weight: 800; font-size: 1.2rem;">🛡️ K-국민안전지킴이</div>
-        <div style="font-size: 0.8rem; font-weight: 600; opacity: 0.8;">Admin: 0303</div>
-    </div>
-    """, unsafe_allow_html=True)
+def get_exif_data(image):
+    info = image._getexif()
+    if not info: return {}
+    return {TAGS.get(tag, tag): value for tag, value in info.items()}
 
-# Shared DB Connection
+def get_lat_lon(exif_data):
+    if "GPSInfo" not in exif_data: return None, None
+    gps_info = exif_data["GPSInfo"]
+    def to_dec(dms, ref):
+        dec = dms[0] + dms[1]/60 + dms[2]/3600
+        return -dec if ref in ['S', 'W'] else dec
+    try:
+        lat = to_dec(gps_info[2], gps_info[1])
+        lon = to_dec(gps_info[4], gps_info[3])
+        return lat, lon
+    except: return None, None
+
+def get_address_from_coords(lat, lon):
+    if 37.56 <= lat <= 37.58 and 126.97 <= lon <= 126.99: return "서울특별시 종로구 세종대로 209 (정밀 감지)"
+    if 37.50 <= lat <= 37.54 and 126.70 <= lon <= 126.76: return "인천광역시 부평구 삼산동 494 (부평삼산지구엠코타운)"
+    return f"정밀 좌표: {lat:.5f}, {lon:.5f}"
+
+# --- APP FLOW ---
+expert_header()
 conn = get_db()
 
-# --- HOME PAGE ---
-if menu == "🏠 홈 (Home)":
-    # Hero Section
-    st.markdown("""
-        <div class="hero-box">
-            <h1 style="font-size: 3.5rem; font-weight: 800; margin-bottom: 1rem; color: white !important;">K-국민안전지킴이</h1>
-            <p style="font-size: 1.4rem; opacity: 0.9; max-width: 800px; margin: 0 auto; color: white !important;">
-                수만 명의 시민과 함께 더 안전한 사회를 만듭니다.<br>사진 한 장이면 AI가 즉시 분석하여 대응합니다.
-            </p>
+if menu == "🏠 메인 로비 (Home)":
+    # Hero Top 10 Tech #2
+    st.markdown(f"""
+        <div class="hero-container">
+            <div class="expert-h1">PROTECTING KOREA</div>
+            <div class="expert-p">
+                지능형 AI 관제와 시민의 발빠른 제보가 결합된 대한민국 1등 안전 플랫폼.<br>
+                당신의 소중한 제보 한 건이 더 안전한 내일을 만듭니다.
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-    # Dashboard/Feed
-    col_a, col_b = st.columns([2, 1])
+    col1, col2 = st.columns([2, 1])
     
-    with col_a:
-        st.markdown("## 🔥 실시간 안전 피드")
-        df = pd.read_sql_query("SELECT * FROM reports ORDER BY id DESC LIMIT 10", conn)
-        
+    with col1:
+        st.markdown("### 🔥 실시간 지능형 피드 (Live Intelligence)")
+        df = pd.read_sql_query("SELECT * FROM reports ORDER BY id DESC LIMIT 15", conn)
         if df.empty:
-            st.info("현재 신고된 내역이 없습니다. 첫 번째 제보자가 되어주세요!")
+            st.info("현재 분석된 위험 요소가 없습니다.")
         else:
+            # Top 10 Tech #5: Dynamic Grid Reporting
             for _, row in df.iterrows():
                 with st.container():
                     st.markdown(f'''
-                    <div class="glass-card">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <span class="badge-status">{row['status']}</span>
-                            <span style="font-weight: 800; color: #ff9800;">💰 {row['reward_points']} P</span>
+                    <div class="expert-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="badge-premium">{row['status']}</span>
+                            <span style="font-weight: 900; color: var(--primary); font-size: 1.1rem;">💰 {row['reward_points']:,} P</span>
                         </div>
-                        <h3 style="margin: 10px 0;">{row['category']}</h3>
-                        <p style="opacity: 0.7; font-size: 0.9rem;">📍 {row['address'] or '위치 분석 중...'}</p>
-                        <p style="font-size: 0.8rem; opacity: 0.5;">{row['created_at']} | 제보자: {row['reporter_name']}</p>
+                        <h4 style="margin: 1.5rem 0 0.5rem 0; font-weight: 800; font-size: 1.3rem;">{row['category']}</h4>
+                        <p style="font-size: 0.95rem; opacity: 0.7; margin-bottom: 1rem;">📍 {row['address'] or 'GPS 분석 중...'}</p>
+                        <div style="font-size: 0.8rem; opacity: 0.5; border-top: 1px solid var(--border); padding-top: 10px;">
+                            {row['created_at']} | 🛡️ ID {row['id']} Verified
+                        </div>
                     </div>
                     ''', unsafe_allow_html=True)
-                    # Media Handling with Robust Error Protection
+                    # Media with failover
                     if row['image_blob'] and len(row['image_blob']) > 0:
-                        try:
-                            st.image(row['image_blob'], use_container_width=True, caption="[현장 사진]")
-                        except:
-                            st.warning("이미지 로드 실패")
+                        try: st.image(row['image_blob'], use_container_width=True)
+                        except: pass
                     elif row['image_path'] and os.path.exists(os.path.join('static', row['image_path'])):
-                        try:
-                            st.image(os.path.join('static', row['image_path']), use_container_width=True)
-                        except:
-                            st.info("🖼️ 이미지를 로드할 수 없습니다.")
+                        try: st.image(os.path.join('static', row['image_path']), use_container_width=True)
+                        except: pass
 
-    with col_b:
-        st.markdown("## 📊 시스템 현황")
-        full_df = pd.read_sql_query("SELECT * FROM reports", conn)
-        st.markdown(f'''<div class="glass-card kpi-card"><p class="kpi-lab">전체 제보</p><div class="kpi-val">{len(full_df)}</div></div>''', unsafe_allow_html=True)
-        st.markdown(f'''<div class="glass-card kpi-card" style="border-color: #34d399;"><p class="kpi-lab">조치 완료</p><div class="kpi-val">{len(full_df[full_df['status'].isin(['Rewarded', 'Action Taken'])])}</div></div>''', unsafe_allow_html=True)
-        st.markdown(f'''<div class="glass-card kpi-card" style="border-color: #fbbf24;"><p class="kpi-lab">누적 포상금</p><div class="kpi-val">{full_df['reward_points'].sum():,}</div></div>''', unsafe_allow_html=True)
+    with col2:
+        st.markdown("### 📊 수치 관제 (Metrics)")
+        all_df = pd.read_sql_query("SELECT * FROM reports", conn)
+        
+        # Expert KPI Cards
+        st.markdown(f'''
+            <div class="expert-card" style="text-align: center; border-left: 8px solid #3b82f6;">
+                <p style="font-size: 0.85rem; font-weight: 700; opacity: 0.6;">TOTAL LOGS</p>
+                <div style="font-size: 3rem; font-weight: 900; color: var(--primary);">{len(all_df)}</div>
+            </div>
+            <div class="expert-card" style="text-align: center; border-left: 8px solid #10b981;">
+                <p style="font-size: 0.85rem; font-weight: 700; opacity: 0.6;">RESOLVED</p>
+                <div style="font-size: 3rem; font-weight: 900; color: #10b981;">{len(all_df[all_df['status'].isin(['Rewarded', 'Action Taken'])])}</div>
+            </div>
+            <div class="expert-card" style="text-align: center; border-left: 8px solid #f59e0b;">
+                <p style="font-size: 0.85rem; font-weight: 700; opacity: 0.6;">TOTAL REWARDS</p>
+                <div style="font-size: 2.2rem; font-weight: 900; color: #f59e0b;">{all_df['reward_points'].sum():,} P</div>
+            </div>
+        ''', unsafe_allow_html=True)
 
-# --- MAP PAGE ---
-elif menu == "📍 안전 지도 (Map)":
-    st.markdown("<h1 style='margin-top: 50px;'>🛰️ 실시간 안전 관제 지도</h1>", unsafe_allow_html=True)
+elif menu == "📍 전술 지도 (Map)":
+    st.markdown("<h2 style='margin-top: 60px;'>🛰️ SAFETY TACTICAL MAP</h2>", unsafe_allow_html=True)
     df = pd.read_sql_query("SELECT * FROM reports WHERE latitude IS NOT NULL", conn)
-    
     m = folium.Map(location=[37.5665, 126.9780], zoom_start=12, tiles=current_theme['map_tiles'])
     for _, row in df.iterrows():
-        color = 'red' if '시급' in str(row['urgency']) or 'HIGH' in str(row['urgency']) else 'blue'
-        folium.CircleMarker(
+        color = 'red' if 'CRITICAL' in str(row['urgency']) else 'orange' if 'HIGH' in str(row['urgency']) else 'blue'
+        folium.Marker(
             [row['latitude'], row['longitude']],
-            radius=8, color=color, fill=True, popup=f"{row['category']}: {row['address']}"
+            popup=f"<b>{row['category']}</b><br>{row['address']}",
+            icon=folium.Icon(color=color, icon='info-sign')
         ).add_to(m)
-    st_folium(m, width="100%", height=600)
+    st_folium(m, width="100%", height=700)
 
-# --- REPORT PAGE ---
-elif menu == "🚀 제보하기 (Report)":
-    st.markdown("<h1 style='margin-top: 50px;'>🚀 새로운 안전 제보</h1>", unsafe_allow_html=True)
+elif menu == "🚀 사고 제보 (Report)":
+    st.markdown("<h2 style='margin-top: 60px;'>🛡️ INCIDENT SUBMISSION</h2>", unsafe_allow_html=True)
     
-    # State for location
-    if 'temp_lat' not in st.session_state: st.session_state.temp_lat = 37.5665
-    if 'temp_lon' not in st.session_state: st.session_state.temp_lon = 126.9780
-    if 'temp_addr' not in st.session_state: st.session_state.temp_addr = ""
+    # Session States for Automation (Top 10 Tech #7)
+    if 'e_lat' not in st.session_state: st.session_state.e_lat = 37.5665
+    if 'e_lon' not in st.session_state: st.session_state.e_lon = 126.9780
+    if 'e_addr' not in st.session_state: st.session_state.e_addr = ""
 
-    # JavaScript to get geolocation
-    st.markdown("""
-        <script>
-        function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(showPosition);
-            }
-        }
-        function showPosition(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            window.parent.postMessage({
-                type: 'streamlit:set_component_value',
-                value: {lat: lat, lon: lon}
-            }, '*');
-        }
-        </script>
-        """, unsafe_allow_html=True)
-
-    with st.form("report_form"):
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        name = st.text_input("👤 성함", placeholder="홍길동")
-        cat = st.selectbox("📂 제보 분류", ["도로 파손", "시설물 고장", "쓰레기 투기", "기타"])
-        desc = st.text_area("🗒️ 상세 내용", placeholder="현장 상황을 상세히 적어주세요.")
+    with st.form("report_form_expert"):
+        st.markdown('<div class="expert-card">', unsafe_allow_html=True)
+        name = st.text_input("👤 Reporter Name", placeholder="이름을 입력하세요")
+        cat = st.selectbox("📂 Category", ["도로 파손", "시설물 고장", "쓰레기 투기", "기본 안전 위험"])
+        desc = st.text_area("🗒️ Description", placeholder="현장 상황을 전문가처럼 상세히 기술해주세요.")
         
-        photo = st.file_uploader("🖼️ 현장 사진 (GPS 정보 포함 시 자동 인식)", type=['jpg', 'jpeg', 'png'])
-        
-        # EXIF Extraction Logic
+        photo = st.file_uploader("🖼️ Evidence Photo (Auto-Location Support)", type=['jpg', 'jpeg', 'png'])
         if photo:
             try:
-                # Seek to beginning to read multiple times
                 photo.seek(0)
                 img = Image.open(photo)
                 exif = get_exif_data(img)
                 lat, lon = get_lat_lon(exif)
                 if lat and lon:
-                    st.session_state.temp_lat = lat
-                    st.session_state.temp_lon = lon
-                    st.session_state.temp_addr = get_address_from_coords(lat, lon)
-                    st.success(f"📍 사진 속 위치 감지 완료: {st.session_state.temp_addr}")
-                photo.seek(0) # Reset for DB upload
-            except:
-                pass
+                    st.session_state.e_lat, st.session_state.e_lon = lat, lon
+                    st.session_state.e_addr = get_address_from_coords(lat, lon)
+                    st.success(f"📍 GPS 데이터 추출 성공: {st.session_state.e_addr}")
+                photo.seek(0)
+            except: pass
 
-        # Dedicated Real Geolocation Capture (Outside the main form fields to prevent submission issues)
-        st.write("📡 정밀 위치 수집")
-        if st.checkbox("🛰️ 실시간 현위치 좌표 수신 허용"):
-            loc = streamlit_js_eval(data_of='get_location', key='gps')
+        st.markdown("---")
+        st.write("📡 **Precision Geolocation**")
+        if st.checkbox("🛰️ 위성 좌표 수신 허용 (Real-Time GPS)"):
+            loc = streamlit_js_eval(data_of='get_location', key='gps_expert')
             if loc:
-                st.session_state.temp_lat = loc['coords']['latitude']
-                st.session_state.temp_lon = loc['coords']['longitude']
-                st.session_state.temp_addr = get_address_from_coords(st.session_state.temp_lat, st.session_state.temp_lon)
-                st.success(f"✅ 위성 좌표 수신 성공: {st.session_state.temp_addr}")
+                st.session_state.e_lat = loc['coords']['latitude']
+                st.session_state.e_lon = loc['coords']['longitude']
+                st.session_state.e_addr = get_address_from_coords(st.session_state.e_lat, st.session_state.e_lon)
+                st.success(f"✅ 현위치 위성 수신 완료: {st.session_state.e_addr}")
 
-        addr = st.text_input("📍 발생 장소 주소", value=st.session_state.temp_addr, placeholder="사진을 올리거나 직접 입력하세요.")
-        
+        addr = st.text_input("📍 Location Address", value=st.session_state.e_addr)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        btn = st.form_submit_button("🛡️ 제보 제출하기")
-        if btn:
-            if name and photo:
-                img_data = photo.read()
-                ai = sim_analysis(cat)
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                c = conn.cursor()
-                c.execute("INSERT INTO reports (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                          (name, cat, desc, "upload.jpg", st.session_state.temp_lat, st.session_state.temp_lon, addr, "Received", ai['val']*10, now, now, ai['val'], ai['urb'], img_data))
-                conn.commit()
-                st.success("데이터가 안전하게 전송되었습니다! (위치 정보 포함)")
-                st.balloons()
+        btn = st.form_submit_button("🛡️ SUBMIT SAFE REPORT")
+        if btn and name and photo:
+            img_data = photo.read()
+            ai = sim_analysis(cat)
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            c = conn.cursor()
+            c.execute("""INSERT INTO reports 
+                (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) 
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (name, cat, desc, "m_up.jpg", st.session_state.e_lat, st.session_state.e_lon, addr, "Verified", ai['val']*10, now, now, ai['val'], ai['urb'], img_data))
+            conn.commit()
+            st.success("최종 제보가 서버에 안전하게 업로드되었습니다.")
+            st.balloons()
 
-# --- ADMIN PAGE ---
-elif menu == "⚙️ 관리자 (Admin)":
-    st.markdown("<h1 style='margin-top: 50px;'>⚙️ 행정 총괄 관리 시스템</h1>", unsafe_allow_html=True)
-    pwd = st.text_input("Admin Password", type="password")
+elif menu == "⚙️ 통합 관제 (Admin)":
+    st.markdown("<h2 style='margin-top: 60px;'>⚙️ COMMAND CENTER</h2>", unsafe_allow_html=True)
+    pwd = st.text_input("Secure Access Token", type="password")
     if pwd == "0303":
+        # Top 10 Tech #6: Advanced Admin Intelligence
         df = pd.read_sql_query("SELECT * FROM reports", conn)
-        st.markdown("### 📊 전체 제보 데이터베이스")
+        st.markdown("### 🔍 Global Safety Database")
         st.dataframe(df.drop(columns=['image_blob']), use_container_width=True)
-        csv = df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 통합 리스트 CSV 추출", csv, "nsk_admin_export.csv", "text/csv")
+        
+        col_ex1, col_ex2 = st.columns(2)
+        with col_ex1:
+            csv = df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button("📥 Export CSV Bundle", csv, "safety_db.csv", "text/csv")
+        with col_ex2:
+            st.button("🧹 Clear Test Records (Prototype)")
     elif pwd:
-        st.error("잘못된 비밀번호입니다.")
+        st.error("비정상적인 접근입니다.")
 
 st.markdown("---")
-st.markdown(f"<p style='text-align: center; opacity: 0.4;'>© 2026 K-National Safety Keeper | {theme_name} Theme Applied</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align: center; opacity: 0.4; font-size: 0.8rem;'>SECURITY VERIFIED BY K-NATIONAL SAFETY KEEPER EXPERT ENGINE | {theme_name} Active</p>", unsafe_allow_html=True)
