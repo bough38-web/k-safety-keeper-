@@ -222,7 +222,7 @@ def expert_header():
         <div class="expert-nav">
             <div style="font-weight: 900; font-size: 1.4rem; color: white;">🛡️ K-SAFETY KEEPER</div>
             <div style="display: flex; align-items: center; color: white; font-size: 0.85rem; font-weight: 600;">
-                <span class="status-dot"></span> <span class="status-dot-text">SYSTEM LIVE | v2.5.0 Expert</span>
+                <span class="status-dot"></span> <span class="status-dot-text">SYSTEM LIVE | v3.0 Ultimate Expert</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -244,16 +244,29 @@ def get_exif_data(image):
     return {TAGS.get(tag, tag): value for tag, value in info.items()}
 
 def get_lat_lon(exif_data):
+    """[v3.0 Expert] Precision EXIF GPS Extraction with DMS conversion"""
     if "GPSInfo" not in exif_data: return None, None
     gps_info = exif_data["GPSInfo"]
+    
     def to_dec(dms, ref):
-        dec = dms[0] + dms[1]/60 + dms[2]/3600
+        # Handle coordinate fractions (Expert Technique #4)
+        if isinstance(dms[0], tuple) or isinstance(dms[0], list):
+            # Streamlit often returns tuples for fractions
+            d = float(dms[0][0]) / float(dms[0][1]) if dms[0][1] != 0 else float(dms[0][0])
+            m = float(dms[1][0]) / float(dms[1][1]) if dms[1][1] != 0 else float(dms[1][0])
+            s = float(dms[2][0]) / float(dms[2][1]) if dms[2][1] != 0 else float(dms[2][0])
+        else:
+            d, m, s = map(float, dms)
+        
+        dec = d + m/60.0 + s/3600.0
         return -dec if ref in ['S', 'W'] else dec
+
     try:
         lat = to_dec(gps_info[2], gps_info[1])
         lon = to_dec(gps_info[4], gps_info[3])
         return lat, lon
-    except: return None, None
+    except Exception as e:
+        return None, None
 
 def get_address_from_coords(lat, lon):
     """[Expert Technique #1] Double-Layer Geocoding Resilience & Korean Address Intelligence"""
@@ -378,84 +391,100 @@ elif menu == "📍 전술 지도 (Map)":
 elif menu == "🚀 사고 제보 (Report)":
     st.markdown("<h2 style='margin-top: 60px;'>🛡️ INCIDENT SUBMISSION</h2>", unsafe_allow_html=True)
     
-    # --- [Expert Tech #2 Refined] Atomic State & Reset Protocol ---
+    # --- [Expert Technique v3.0] Double-Buffered State Synchronization ---
     if 'e_lat' not in st.session_state: st.session_state.e_lat = None
     if 'e_lon' not in st.session_state: st.session_state.e_lon = None
     if 'e_addr' not in st.session_state: st.session_state.e_addr = ""
+    if 'diag_logs' not in st.session_state: st.session_state.diag_logs = []
     
-    # Internal Reset Flag to avoid "modification after instantiation" errors
+    def add_diag(msg):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        st.session_state.diag_logs.append(f"[{timestamp}] {msg}")
+
+    # Internal reset logic
     if st.session_state.get('clear_location_now'):
         st.session_state.e_lat = None
         st.session_state.e_lon = None
         st.session_state.e_addr = ""
+        st.session_state.diag_logs = []
         st.session_state.clear_location_now = False
 
-    # --- [Expert Tech #3] Location Status Dashboard UI ---
-    st.markdown('<div class="expert-card" style="border-top: 4px solid var(--primary);">', unsafe_allow_html=True)
-    st.markdown("### 🛰️ 정밀 위치 분석 엔진 (V2.5 Expert)")
+    # --- [Expert Technique v3.0] Ultimate Diagnostic Dashboard ---
+    st.markdown('<div class="expert-card" style="border-top: 5px solid #3b82f6;">', unsafe_allow_html=True)
+    st.markdown("### 🛰️ ULTIMATE GEOLOCATION ENGINE v3.0")
     
-    col_anal1, col_anal2 = st.columns([1, 1])
+    with st.expander("🔍 전문 분석 진단 콘솔 (Diagnostic Console)", expanded=True):
+        if not st.session_state.diag_logs:
+            st.write("대시보드: 분석 대기 중...")
+        for log in st.session_state.diag_logs[-5:]: # Show last 5 logs
+            st.code(log)
+
+    col_v3_1, col_v3_2 = st.columns(2)
     
-    with col_anal1:
-        st.markdown("#### 📸 1단계: 시각 데이터 분석")
-        photo = st.file_uploader("🖼️ 제보 사진 업로드 (GPS 추출)", type=['jpg', 'jpeg', 'png'])
+    with col_v3_1:
+        st.markdown("#### 📸 STEP 1: 사진 분석")
+        photo = st.file_uploader("🖼️ 증거 사진 첨부 (Auto-Analysis)", type=['jpg', 'jpeg', 'png'], key="uploader_v3")
         if photo:
             try:
-                # [Expert Tech #2] Atomic Session Guard
                 photo.seek(0)
                 img = Image.open(photo)
                 exif = get_exif_data(img)
                 lat, lon = get_lat_lon(exif)
                 if lat and lon:
-                    # Only rerun if it's a new location
                     if st.session_state.e_lat != lat or st.session_state.e_lon != lon:
                         st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                        st.session_state.e_addr = get_address_from_coords(lat, lon)
-                        st.success("✅ 사진에서 정밀 좌표를 추출했습니다.")
+                        add_diag(f"사진 GPS 추출 성공: {lat:.6f}, {lon:.6f}")
+                        addr_res = get_address_from_coords(lat, lon)
+                        st.session_state.e_addr = addr_res
+                        add_diag(f"주소 변환 성공: {addr_res}")
                         st.rerun()
                 else:
-                    st.warning("⚠️ 사진에 위치 정보가 없습니다. 2단계 수집을 진행하세요.")
-            except: pass
+                    if not st.session_state.get('warned_exif'):
+                        add_diag("⚠️ 사진에 GPS 메타데이터가 없습니다. 2단계를 시도하세요.")
+                        st.session_state.warned_exif = True
+            except Exception as e:
+                add_diag(f"❌ 분석 엔진 오류: {str(e)}")
 
-    with col_anal2:
-        st.markdown("#### 📡 2단계: 위성 실시간 동기화")
-        st.info("💡 모바일 브라우저 보안 정책상 위성 수신 버튼을 직접 눌러야 좌표가 매칭됩니다.")
-        
-        # Expert Trigger Logic
-        sync_click = st.button("🏹 현위치 위성 수집 (Force Sync)", use_container_width=True, key="force_sync_btn")
-        if sync_click:
-            st.session_state.gps_requested = True
-            
-        if st.session_state.get('gps_requested'):
-            with st.spinner("🛰️ 위성 신호 대기 및 주소 변환 중..."):
-                loc = streamlit_js_eval(data_of='get_location', key=f'gps_expert_final')
-                if loc:
-                    n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
-                    if n_lat != st.session_state.e_lat or n_lon != st.session_state.e_lon:
-                        st.session_state.e_lat, st.session_state.e_lon = n_lat, n_lon
-                        st.session_state.e_addr = get_address_from_coords(n_lat, n_lon)
-                        st.session_state.gps_requested = False
-                        st.success(f"✅ 위성 수신 성공: {st.session_state.e_addr}")
-                        st.rerun()
-                elif sync_click:
-                    # Only show warning if the button was just pressed and no location came back immediately
-                    st.toast("📡 위치 신호를 확인하고 있습니다. 잠시만 기다려주세요...")
+    with col_v3_2:
+        st.markdown("#### 📡 STEP 2: 위성 동기화")
+        st.info("💡 사진의 위치가 다르거나 없을 때 아래 버튼을 누르세요.")
+        if st.button("🎯 현위치 위성 수집 (Direct Signal)", use_container_width=True):
+            st.session_state.gps_v3_trigger = time.time()
+            add_diag("위성 신호 탐색 시작...")
+            loc = streamlit_js_eval(data_of='get_location', key=f'v3_gps_{st.session_state.gps_v3_trigger}')
+            if loc:
+                n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
+                st.session_state.e_lat, st.session_state.e_lon = n_lat, n_lon
+                add_diag(f"위성 수신 성공: {n_lat:.6f}, {n_lon:.6f}")
+                addr_res = get_address_from_coords(n_lat, n_lon)
+                st.session_state.e_addr = addr_res
+                add_diag(f"주소 변환 성공: {addr_res}")
+                st.rerun()
+            else:
+                add_diag("❌ 위성 신호 수신 실패 (권한 또는 GPS 비활성)")
 
     st.markdown("---")
-    # [Expert Tech #5] Robust Manual Overwrite - Avoiding strict Key binding error
-    st.session_state.e_addr = st.text_input("📍 최종 분석된 위치 주소 (직접 입력 가능)", value=st.session_state.e_addr)
     
-    # [Expert Tech #7] Visual Verification Badge
-    if st.session_state.e_lat and st.session_state.e_lon:
+    # [Expert Tech #1] Signal-First Signal Display
+    if st.session_state.e_lat:
         st.markdown(f"""
-            <div style="background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 8px; border: 1px dashed #3b82f6; margin-bottom: 20px;">
-                <span style="color: #3b82f6; font-weight: 700;">🎯 정밀 분석 좌표:</span> {st.session_state.e_lat:.6f}, {st.session_state.e_lon:.6f}
+            <div style="background: #1e293b; color: #38bdf8; padding: 15px; border-radius: 10px; border-left: 5px solid #38bdf8; margin-bottom: 20px;">
+                <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">CURRENT SIGNAL LOCK</h4>
+                <div style="font-size: 1.2rem; font-weight: 800; font-family: monospace;">LAT: {st.session_state.e_lat:.6f} | LON: {st.session_state.e_lon:.6f}</div>
+                <div style="margin-top: 5px; font-size: 0.95rem; color: #94a3b8;">📍 {st.session_state.e_addr or '주소 분석 중...'}</div>
             </div>
         """, unsafe_allow_html=True)
+
+    # [Expert Tech #5] Buffered Address Input (Manual Correction)
+    # Using a local variable for the widget to avoid session state modification conflicts
+    manual_addr = st.text_input("📝 최종 제보 주소 확인 (필요시 수동 수정)", value=st.session_state.e_addr)
+    if manual_addr != st.session_state.e_addr:
+        st.session_state.e_addr = manual_addr
+
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- Submission Form ---
-    with st.form("report_form_expert"):
+    with st.form("report_form_v3"):
         st.markdown('<div class="expert-card">', unsafe_allow_html=True)
         name = st.text_input("👤 Reporter Name", placeholder="이름을 입력하세요")
         cat = st.selectbox("📂 Category", ["도로 파손", "시설물 고장", "쓰레기 투기", "기본 안전 위험"])
@@ -472,31 +501,22 @@ elif menu == "🚀 사고 제보 (Report)":
                 st.error("📍 위치 주소를 확인해주세요.")
             else:
                 try:
-                    # Top 10 Tech #10: Data Integrity Polish
                     photo.seek(0)
                     img_data = photo.read()
                     ai = sim_analysis(cat)
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
-                    # Explicitly cast to ensure SQLite compatibility (Fallback to Seoul central if None)
-                    b_name = str(name)
-                    b_cat = str(cat)
-                    b_desc = str(desc)
                     b_lat = float(st.session_state.e_lat if st.session_state.e_lat is not None else 37.5665)
                     b_lon = float(st.session_state.e_lon if st.session_state.e_lon is not None else 126.9780)
-                    b_addr = str(st.session_state.e_addr)
-                    b_val = int(ai['val'])
-                    b_urb = str(ai['urb'])
                     
                     c = conn.cursor()
                     c.execute("""INSERT INTO reports 
                         (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) 
                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (b_name, b_cat, b_desc, "m_up.jpg", b_lat, b_lon, b_addr, "Verified", b_val*10, now, now, b_val, b_urb, sqlite3.Binary(img_data)))
+                        (str(name), str(cat), str(desc), "m_up.jpg", b_lat, b_lon, str(st.session_state.e_addr), "Verified", int(ai['val'])*10, now, now, int(ai['val']), str(ai['urb']), sqlite3.Binary(img_data)))
                     conn.commit()
-                    st.success("✅ 제보가 안전하게 접수되었습니다. (Expert System Logged)")
+                    st.success("✅ 제보가 안전하게 접수되었습니다.")
                     st.balloons()
-                    # Set reset flag for next run to avoid "After Instantiation" error
                     st.session_state.clear_location_now = True
                     st.rerun()
                 except Exception as e:
