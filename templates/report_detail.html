@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero" style="border-radius: 0; padding: 2rem 0; margin-bottom: 0;">
+    <div class="container">
+        <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem;">제보 상세 내역</h2>
+        <p style="font-size: 1rem; opacity: 0.9;">사건번호 #{{ report.id }} | {{ report.created_at }}</p>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 2rem; margin-bottom: 4rem;">
+    <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <a href="{{ url_for('index') }}" class="muted" style="text-decoration: none; font-weight: 700;">← 목록으로 돌아가기</a>
+        <a href="{{ url_for('report_print', report_id=report.id) }}" target="_blank" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.5rem 1rem;">📄 보고서 출력</a>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1.5fr 1fr;">
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <img src="{{ url_for('static', filename=report.image_path) }}" style="width: 100%; height: auto; max-height: 600px; object-fit: contain; background: #000;">
+            
+            <div style="padding: 2rem; border-top: 1px solid #f1f5f9;">
+                <h4 style="margin-bottom: 1.5rem; font-weight: 800;">🛰️ 행정 처리 프로세스 (6단계)</h4>
+                <div style="display: flex; justify-content: space-between; position: relative; margin-bottom: 3rem;">
+                    <div style="position: absolute; top: 15px; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 1;"></div>
+                    {% set statuses = [('Received', '접수'), ('Reviewing', '심사'), ('Adopted', '채택'), ('Transferred', '이송'), ('Action Taken', '조치'), ('Rewarded', '포상')] %}
+                    {% set current_found = false %}
+                    {% for key, label in statuses %}
+                        <div style="z-index: 2; text-align: center; width: 60px;">
+                            <div style="width: 34px; height: 34px; border-radius: 50%; background: {{ 'var(--primary)' if report.status == key else ('#cbd5e1' if current_found else 'var(--primary)') }}; color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem; font-weight: 800; border: 4px solid white; box-shadow: 0 0 0 2px {{ 'var(--primary)' if report.status == key else '#e2e8f0' }};">
+                                {{ loop.index }}
+                            </div>
+                            <div style="font-size: 0.7rem; font-weight: 700; color: {{ 'var(--primary)' if report.status == key else '#64748b' }};">{{ label }}</div>
+                        </div>
+                        {% if report.status == key %}{% set current_found = true %}{% endif %}
+                    {% endfor %}
+                </div>
+                
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; border-left: 5px solid var(--primary);">
+                    <h5 style="margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+                        <span>🏢 공식 조치 의견</span>
+                        <span style="font-size: 0.8rem; color: var(--primary);">{{ report.updated_at[:10] }}</span>
+                    </h5>
+                    <p style="font-size: 0.95rem; color: #475569; line-height: 1.6;">
+                        {{ report.admin_feedback or '현재 행정 검토가 진행 중입니다. 잠시만 기다려 주세요.' }}
+                    </p>
+                    {% if report.transferred_to %}
+                    <div style="margin-top: 1rem; font-size: 0.85rem; font-weight: 700; color: var(--secondary);">
+                         ▶ 관련 부서 이송 완료: [ {{ report.transferred_to }} ]
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <span class="badge badge-{{ 'success' if report.status == 'Rewarded' else 'pending' }}" style="font-size: 1rem; padding: 0.6rem 1.2rem;">
+                    {% if report.status == 'Received' %}접수됨{% elif report.status == 'Reviewing' %}심사중{% elif report.status == 'Adopted' %}채택됨{% elif report.status == 'Transferred' %}부처이송{% elif report.status == 'Action Taken' %}조치완료{% elif report.status == 'Rewarded' %}포상완료{% else %}{{ report.status }}{% endif %}
+                </span>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent);">누적 포상 포인트</div>
+                    <div style="font-size: 1.5rem; font-weight: 900; color: var(--primary);">💰 {{ report.reward_points }} P</div>
+                </div>
+            </div>
+
+            <div style="background: linear-gradient(135deg, #135bec 0%, #1e40af 100%); color: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -10px; right: -10px; font-size: 4rem; opacity: 0.1;">✨</div>
+                <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.25rem; opacity: 0.8;">AI 공공 가치 평가</div>
+                <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                    <span style="font-size: 2.5rem; font-weight: 900;">{{ report.public_value }}</span>
+                    <span style="font-size: 1rem; font-weight: 700;">/ 100점</span>
+                </div>
+                <p style="font-size: 0.75rem; margin-top: 0.5rem; line-height: 1.4; opacity: 0.9;">
+                    AI가 제보 내용의 공공성, 위험도, 시급성을 실시간으로 분석하여 산출한 가치 지수입니다.
+                </p>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <h3 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--primary);">{{ report.category }}</h3>
+                <p style="font-size: 1.1rem; color: #4b5563;">{{ report.description }}</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1rem; background: #f8fafc; padding: 1.5rem; border-radius: var(--radius-md);">
+                <div>
+                    <span class="muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 800;">정밀 발생 위치 (주변 지형지물)</span>
+                    <p style="font-weight: 700; color: var(--primary);">📍 {{ report.landmarks if report.landmarks else '미분석 지점' }}</p>
+                </div>
+                <div>
+                    <span class="muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 800;">AI 시급성 판단</span>
+                    <p style="font-weight: 700; color: {{ 'var(--danger)' if report.urgency and '위험' in (report.urgency|string) else 'inherit' }};">🚨 {{ report.urgency if report.urgency else '확인 필요' }}</p>
+                </div>
+                <div>
+                    <span class="muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 800;">제보자</span>
+                    <p style="font-weight: 700;">{{ report.reporter_name }}</p>
+                </div>
+                <div>
+                    <span class="muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 800;">발생 장소</span>
+                    <p style="font-weight: 700;">📍 {{ report.address or '위급 상황 (위치 분석 중)' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

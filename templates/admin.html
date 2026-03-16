@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero">
+    <div class="container">
+        <h2 style="font-size: 3rem; font-weight: 800; margin-bottom: 1rem;">관리자 본부</h2>
+        <p style="font-size: 1.25rem; opacity: 0.9;">국가 안전 상황을 실시간으로 모니터링합니다.</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-value" id="kpi-total">{{ reports|length }}</div>
+            <div class="kpi-label">전체 제보 수</div>
+        </div>
+        <div class="kpi-card" style="border-bottom-color: var(--success);">
+            <div class="kpi-value" style="color: var(--success);" id="kpi-resolved">
+                {% set resolved_count = reports|selectattr('status', 'equalto', 'Rewarded')|list|length %}
+                {{ resolved_count }}
+            </div>
+            <div class="kpi-label">포상 완료</div>
+        </div>
+        <div class="kpi-card" style="border-bottom-color: var(--accent);">
+            <div class="kpi-value" style="color: var(--accent);" id="kpi-points">
+                {% set total_pts = reports|map(attribute='reward_points')|sum %}
+                {{ total_pts }}
+            </div>
+            <div class="kpi-label">누적 지급 포인트</div>
+        </div>
+    </div>
+
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="background: #f1f5f9; padding: 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-weight: 800;">지능형 행정 라이프사이클 관리</h3>
+            <div style="display: flex; gap: 1rem;">
+                <a href="{{ url_for('export_csv') }}" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: white;">📊 리스트 다운로드 (CSV)</a>
+            </div>
+        </div>
+        
+        <div class="admin-table-container">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 1.25rem; text-align: left; font-size: 0.75rem; text-transform: uppercase;">제보 정보</th>
+                        <th style="padding: 1.25rem; text-align: left; font-size: 0.75rem; text-transform: uppercase;">AI 가치평가</th>
+                        <th style="padding: 1.25rem; text-align: left; font-size: 0.75rem; text-transform: uppercase;">행정 처리 단계 (6단계)</th>
+                        <th style="padding: 1.25rem; text-align: left; font-size: 0.75rem; text-transform: uppercase;">작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr id="report-row-{{ report.id }}" style="transition: all 0.3s; border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 1.25rem; min-width: 250px;">
+                            <div style="display: flex; gap: 1rem;">
+                                <img src="{{ url_for('static', filename=report.image_path) }}" style="width: 80px; height: 60px; object-fit: cover; border-radius: 6px;">
+                                <div>
+                                    <div style="font-weight: 800;">{{ report.category }} 
+                                        {% if report.urgency %}
+                                        <span style="font-size: 0.7rem; padding: 2px 6px; background: #fee2e2; color: #b91c1c; border-radius: 4px; margin-left: 5px;">{{ report.urgency }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="muted" style="font-size: 0.8rem;">📍 {{ report.address or '위치 분석중' }}</div>
+                                    <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700;">🚩 {{ report.landmarks if report.landmarks else '-' }}</div>
+                                    <div class="muted" style="font-size: 0.75rem;">👤 {{ report.reporter_name }} | {{ report.created_at[:10] }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="padding: 1.25rem; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 900; color: var(--primary);">{{ report.public_value }}</div>
+                            <div style="font-size: 0.7rem; font-weight: 700; color: #64748b;">공공성 점수</div>
+                        </td>
+                        <td style="padding: 1.25rem;">
+                            <form action="{{ url_for('admin') }}" method="post" id="form-{{ report.id }}">
+                                <input type="hidden" name="report_id" value="{{ report.id }}">
+                                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    <select name="status" style="padding: 0.4rem; font-size: 0.85rem; font-weight: 700;">
+                                        <option value="Received" {% if report.status == 'Received' %}selected{% endif %}>1. 접수</option>
+                                        <option value="Reviewing" {% if report.status == 'Reviewing' %}selected{% endif %}>2. 심사중</option>
+                                        <option value="Adopted" {% if report.status == 'Adopted' %}selected{% endif %}>3. 채택됨</option>
+                                        <option value="Transferred" {% if report.status == 'Transferred' %}selected{% endif %}>4. 부처이송</option>
+                                        <option value="Action Taken" {% if report.status == 'Action Taken' %}selected{% endif %}>5. 조치완료</option>
+                                        <option value="Rewarded" {% if report.status == 'Rewarded' %}selected{% endif %}>6. 포상완료</option>
+                                    </select>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <input type="text" name="transferred_to" value="{{ report.transferred_to or '' }}" placeholder="이송 부처 (예: 도로과)" style="flex: 1; padding: 0.4rem; font-size: 0.8rem; margin: 0;">
+                                        <input type="number" name="reward_points" value="{{ report.reward_points }}" style="width: 80px; padding: 0.4rem; font-size: 0.8rem; margin: 0; font-weight: 700;">
+                                    </div>
+                                    <textarea name="admin_feedback" placeholder="신고자 피드백 입력..." style="padding: 0.4rem; font-size: 0.8rem; margin: 0; min-height: 40px;">{{ report.admin_feedback or '' }}</textarea>
+                                </div>
+                            </form>
+                        </td>
+                        <td style="padding: 1.25rem; text-align: center;">
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <button type="submit" form="form-{{ report.id }}" class="btn btn-primary" style="padding: 0.5rem; font-size: 0.8rem; width: 100%;">저장</button>
+                                <a href="{{ url_for('report_print', report_id=report.id) }}" target="_blank" class="btn btn-secondary" style="padding: 0.5rem; font-size: 0.8rem; width: 100%; text-decoration: none;">출력</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // KPI Counting Script
+    const resolvedCount = {{ reports|selectattr('status', 'in', ['Rewarded', 'Action Taken'])|list|length }};
+    const totalPoints = {{ reports|map(attribute='reward_points')|list|sum }};
+    
+    document.getElementById('kpi-resolved').innerText = resolvedCount;
+    document.getElementById('kpi-points').innerText = totalPoints.toLocaleString() + 'P';
+</script>
+{% endblock %}

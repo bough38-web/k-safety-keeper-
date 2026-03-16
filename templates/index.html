@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero">
+    <div class="container">
+        <h2 style="font-size: 3.5rem; font-weight: 800; margin-bottom: 1rem; text-shadow: 0 4px 12px rgba(0,0,0,0.1);">K-국민안전지킴이</h2>
+        <p style="font-size: 1.5rem; opacity: 0.95; max-width: 800px; margin: 0 auto;">수만 명의 시민과 함께 더 안전한 사회를 만듭니다. 사진 한 장이면 AI가 모든 것을 처리합니다.</p>
+        <div style="margin-top: 3rem; display: flex; justify-content: center; gap: 1.5rem;">
+            <a href="{{ url_for('create_report') }}" class="btn btn-primary" style="font-size: 1.25rem; padding: 1.25rem 3rem; border-radius: 50px;">🚀 지금 제보하기</a>
+            <a href="{{ url_for('safety_map') }}" class="btn btn-secondary" style="font-size: 1.25rem; padding: 1.25rem 3rem; border-radius: 50px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px);">📍 지도 보기</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+        <div>
+            <h2 style="font-weight: 800; font-size: 2rem;">실시간 안전 피드</h2>
+            <p class="muted">우리 동네의 생생한 안전 정보를 확인하세요.</p>
+        </div>
+        <div style="background: white; padding: 0.5rem 1rem; border-radius: 50px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); font-weight: 700; color: var(--primary);">
+            ✨ AI 자동 인식 활성화됨
+        </div>
+    </div>
+
+    <div class="grid">
+        {% for report in reports %}
+        <div class="card report-card">
+            <div style="position: relative;">
+                <img src="{{ url_for('static', filename=report.image_path) }}" alt="Incident Photo">
+                <span class="badge" style="position: absolute; top: 1rem; right: 1rem; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); color: white; font-weight: 700; padding: 0.5rem 1rem;">ID: #{{ report.id }}</span>
+            </div>
+            <div class="report-card-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span class="badge badge-{{ 'success' if report.status == 'Rewarded' or report.status == 'Action Taken' else 'pending' }}">
+                        {% if report.status == 'Received' %}접수됨{% elif report.status == 'Reviewing' %}심사중{% elif report.status == 'Adopted' %}채택됨{% elif report.status == 'Rewarded' %}포상완료{% elif report.status == 'Action Taken' %}조치완료{% else %}{{ report.status }}{% endif %}
+                    </span>
+                    <span style="font-weight: 800; color: var(--accent);">💰 {{ report.reward_points }} P</span>
+                </div>
+                <h3 class="report-card-title">{{ report.category }}</h3>
+                <p class="muted" style="font-size: 0.9rem; margin-bottom: 1rem;">📍 {{ report.address or '위치 분석 중...' }}</p>
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; color: #64748b;">{{ report.reporter_name[:1] }}</div>
+                        <span style="font-weight: 600; font-size: 0.85rem;">{{ report.reporter_name }}</span>
+                    </div>
+                    <a href="{{ url_for('report_detail', report_id=report.id) }}" style="text-decoration: none; font-weight: 700; color: var(--primary); font-size: 0.9rem;">상세보기 →</a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 5rem;">
+            <div style="font-size: 5rem; margin-bottom: 1.5rem;">🏘️</div>
+            <h3 style="font-size: 1.5rem; font-weight: 800;">현재 우리 동네는 안전합니다!</h3>
+            <p class="muted">아직 신고된 내역이 없습니다. 첫 번째로 제보하여 이웃을 도와주세요.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

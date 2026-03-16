@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>안전 제보 결과 보고서 - #{{ report.id }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: 900; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 18px; font-weight: 800; border-left: 5px solid #135bec; padding-left: 10px; margin-bottom: 15px; background: #f8fafc; padding-top: 5px; padding-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+        th { background: #f1f5f9; width: 30%; font-weight: 700; }
+        .photo-box { text-align: center; margin: 20px 0; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; }
+        .photo-box img { max-width: 100%; max-height: 400px; border-radius: 4px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 12px; font-weight: 700; color: white; }
+        .badge-success { background: #10b981; }
+        .badge-pending { background: #f59e0b; }
+        .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+        @media print {
+            .no-print { display: none; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #135bec; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 700;">📄 PDF로 저장 / 인쇄</button>
+    </div>
+
+    <div class="header">
+        <h1>K-국민안전지킴이 보고서</h1>
+        <p>K-National Safety Keeper Administrative System</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">1. 제보 기본 정보</div>
+        <table>
+            <tr>
+                <th>사건 번호</th>
+                <td>#{{ report.id }}</td>
+                <th>제보 일시</th>
+                <td>{{ report.created_at }}</td>
+            </tr>
+            <tr>
+                <th>제보자</th>
+                <td>{{ report.reporter_name }}님</td>
+                <th>위험 유형</th>
+                <td><strong>{{ report.category }}</strong></td>
+            </tr>
+            <tr>
+                <th>발생 장소</th>
+                <td colspan="3">{{ report.address or '위치 정보 없음' }}</td>
+            </tr>
+            <tr>
+                <th>정밀 위치(랜드마크)</th>
+                <td colspan="3"><strong>{{ report.landmarks or '정보 없음' }}</strong></td>
+            </tr>
+            <tr>
+                <th>GPS 좌표</th>
+                <td>{{ report.latitude }}, {{ report.longitude }}</td>
+                <th>AI 시급성</th>
+                <td style="color: red; font-weight: 800;">{{ report.urgency or '분석 중' }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <div class="section-title">2. 인공지능(AI) 자동 감정 결과</div>
+        <table>
+            <tr>
+                <th>공공 가치 점수</th>
+                <td style="font-size: 18px; font-weight: 800; color: #135bec;">{{ report.public_value }} / 100점</td>
+                <th>예상 포상</th>
+                <td>{{ report.reward_points }} 포인트 (원터치 자동 산출)</td>
+            </tr>
+            <tr>
+                <th>AI 종합 의견</th>
+                <td colspan="3">해당 제보 사진을 분석한 결과, 공공의 안전에 미치는 영향이 유의미한 수치로 감지되어 높은 공공 가치 점수를 부여함.</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <div class="section-title">3. 제보 사진 및 상세 내용</div>
+        <div class="photo-box">
+            <img src="{{ url_for('static', filename=report.image_path) }}" alt="제보 사진">
+        </div>
+        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <strong>[제보자 상세 의견]</strong><br>
+            {{ report.description or '상세 내용 없음' }}
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">4. 행정 처리 및 조치 결과</div>
+        <table>
+            <tr>
+                <th>최종 상태</th>
+                <td>
+                    <span class="badge badge-{{ 'success' if report.status == 'Rewarded' or report.status == 'Action Taken' else 'pending' }}">
+                        {% if report.status == 'Received' %}접수{% elif report.status == 'Reviewing' %}심사중{% elif report.status == 'Adopted' %}채택됨{% elif report.status == 'Transferred' %}부처이송(조치중){% elif report.status == 'Action Taken' %}조치완료{% elif report.status == 'Rewarded' %}포상완료{% else %}{{ report.status }}{% endif %}
+                    </span>
+                </td>
+                <th>이송 부처</th>
+                <td>{{ report.transferred_to or '미지정' }}</td>
+            </tr>
+            <tr>
+                <th>관리자 검토 의견</th>
+                <td colspan="3">{{ report.admin_feedback or '검토 의견 대기 중입니다.' }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="footer">
+        본 보고서는 K-국민안전지킴이 시스템에서 자동 생성된 공문서용 리포트입니다.<br>
+        조사 기관: K-National Safety Keeper 통합 관제 센터 | 생성 일시: {{ report.updated_at }}
+    </div>
+</body>
+</html>

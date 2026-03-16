@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block content %}
+<div id="analysis-overlay">
+  <div class="loader-ai"></div>
+  <p style="font-size: 1.5rem; font-weight: 800; text-align: center;">🤖 AI 지능형 분석 중...<br><span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">사진에서 안전 속성을 추출하고 있습니다.</span></p>
+</div>
+
+<div class="hero">
+    <div class="container">
+        <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem;">간편 제보하기</h2>
+        <p style="font-size: 1.1rem; opacity: 0.9;">AI의 도움으로 수 초 내에 위험 요소를 제보하세요.</p>
+    </div>
+</div>
+
+<div class="container" style="max-width: 800px; margin-top: -3rem;">
+    <div class="card">
+        <form id="report-form" method="post" enctype="multipart/form-data">
+            <div id="photo-upload-area" style="text-align: center; padding: 3rem; border: 3px dashed #cbd5e1; border-radius: var(--radius-lg); cursor: pointer; background: #f8fafc; transition: all 0.3s; margin-bottom: 2rem;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">📸</div>
+                <h3 style="margin-bottom: 0.5rem;">현장 사진 선택</h3>
+                <p class="muted">AI가 위치와 유형을 자동으로 분석합니다.</p>
+                <input type="file" name="image" id="image-input" accept="image/*" required style="display: none;">
+            </div>
+
+            <div id="recognized-attributes" style="display: none; margin-bottom: 2rem; border-left: 4px solid var(--primary); padding-left: 1.5rem; background: rgba(19, 91, 236, 0.03); padding: 1.5rem; border-radius: 0 var(--radius-md) var(--radius-md) 0;">
+                <h4 style="margin-bottom: 1rem; color: var(--primary);">✨ AI 인식 결과</h4>
+                <div class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                    <div>
+                        <p class="muted" style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">추천 유형</p>
+                        <p id="ai-category-display" style="font-weight: 700;">분석 중...</p>
+                        <input type="hidden" name="category" id="category-input">
+                    </div>
+                    <div>
+                        <p class="muted" style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">위치 신뢰도</p>
+                        <p style="font-weight: 700; color: var(--success);">높음 (GPS 일치)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="image">📸 사진 첨부 (직접 촬영 또는 갤러리)</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="file" id="image-input" name="image" accept="image/*" capture="camera" required style="flex: 1;">
+                    <label for="image-input" class="btn btn-secondary" style="width: auto; padding: 0 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">📷</label>
+                </div>
+                <p class="muted" style="margin-top: 5px; font-size: 0.8rem;">모바일에서 촬영 시 '직접 촬영'이 우선 호출됩니다.</p>
+            </div>
+
+            <div class="form-group">
+                <label>👤 제보자 성함</label>
+                <input type="text" name="reporter_name" placeholder="홍길동" required>
+            </div>
+
+            <div class="form-group">
+                <label>📍 발생 위치</label>
+                <div style="display: flex; gap: 0.5rem; margin-top: 5px;">
+                    <input type="text" name="manual_address" id="manual_address" placeholder="주소를 분석 중입니다..." style="flex: 1; margin-bottom: 0;">
+                    <button type="button" id="btn-get-location" class="btn btn-secondary" style="padding: 0 1rem; font-size: 1.5rem; width: auto;">🎯</button>
+                </div>
+                <p class="muted" style="margin-top: 5px; font-size: 0.8rem;">사진 메타데이터를 우선 사용하며, 없을 경우 현 위치를 활용합니다.</p>
+                <p id="location-status" class="muted" style="margin-top: 5px; font-size: 0.8rem;"></p>
+            </div>
+
+            <div class="form-group">
+                <label>📝 상세 내용</label>
+                <textarea name="description" rows="3" placeholder="위험 요소에 대한 간단한 설명을 입력해 주세요..."></textarea>
+            </div>
+
+            <div style="display: none;">
+                <input type="text" name="manual_latitude" id="lat-input">
+                <input type="text" name="manual_longitude" id="lng-input">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.25rem; padding: 1.25rem;">🚀 지금 제보 등록하기</button>
+        </form>
+    </div>
+</div>
+
+<script>
+const uploadArea = document.getElementById('photo-upload-area');
+const fileInput = document.getElementById('image-input');
+const form = document.getElementById('report-form');
+const overlay = document.getElementById('analysis-overlay');
+const attrArea = document.getElementById('recognized-attributes');
+const categoryDisplay = document.getElementById('ai-category-display');
+const categoryInput = document.getElementById('category-input');
+const addressInput = document.getElementById('manual_address');
+const latInput = document.getElementById('lat-input');
+const lngInput = document.getElementById('lng-input');
+
+uploadArea.onclick = () => fileInput.click();
+
+fileInput.onchange = (e) => {
+    if (e.target.files.length > 0) {
+        overlay.style.display = 'flex';
+        // Simulate AI analysis delay
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            attrArea.style.display = 'block';
+            
+            // Simulation logic for UI feedback
+            const mockCategories = ["도로 파손", "시설물 고장", "쓰레기 투기", "가로등 고장", "보행로 사각지대"];
+            const selected = mockCategories[Math.floor(Math.random() * mockCategories.length)];
+            categoryDisplay.innerText = selected;
+            categoryInput.value = selected;
+            
+            uploadArea.innerHTML = `<div style="font-size: 4rem; margin-bottom: 1rem;">✅</div><h3 style="margin-bottom: 0.5rem;">사진 선택 완료</h3><p class="muted">${e.target.files[0].name}</p>`;
+            uploadArea.style.borderColor = 'var(--success)';
+            uploadArea.style.background = '#f0fdf4';
+        }, 1500);
+    }
+};
+
+document.getElementById('btn-get-location').onclick = () => {
+    if (navigator.geolocation) {
+        addressInput.placeholder = "현재 GPS 위치를 가져오는 중...";
+        navigator.geolocation.getCurrentPosition((pos) => {
+            latInput.value = pos.coords.latitude;
+            lngInput.value = pos.coords.longitude;
+            addressInput.value = `현재 위치 (북위 ${pos.coords.latitude.toFixed(4)}, 동경 ${pos.coords.longitude.toFixed(4)})`;
+            addressInput.style.borderColor = 'var(--success)';
+        }, (err) => {
+            alert("위치 정보를 가져올 수 없습니다. 수동으로 입력해 주세요.");
+        });
+    } else {
+        alert("이 브라우저는 위치 정보를 지원하지 않습니다.");
+    }
+};
+
+form.onsubmit = () => {
+    overlay.innerHTML = `<div class="loader-ai"></div><p style="font-size: 1.5rem; font-weight: 800; text-align: center;">🚀 제보 전송 중...<br><span style="font-size: 1rem; font-weight: 400; opacity: 0.8;">정부 안전 서버에 연결 중입니다.</span></p>`;
+    overlay.style.display = 'flex';
+};
+</script>
+{% endblock %}

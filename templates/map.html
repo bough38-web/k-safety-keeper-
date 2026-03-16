@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero" style="border-radius: 0; padding: 2rem 0; margin-bottom: 0;">
+    <div class="container">
+        <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--primary);">K-국민안전지킴이</h2>
+        <p style="font-size: 1.1rem; opacity: 0.9;">신고 밀집도와 실시간 제보 현황을 시각적으로 확인하세요.</p>
+    </div>
+</div>
+
+<div id="map-container" style="position: relative; height: calc(100vh - 250px); min-height: 600px;">
+    <div id="map" style="height: 100%; width: 100%; z-index: 1;"></div>
+    
+    <!-- Floating Glass Controls -->
+    <div style="position: absolute; top: 1.5rem; right: 1.5rem; z-index: 1000; display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="card" style="padding: 1rem; margin: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <h4 style="margin-bottom: 0.5rem; font-size: 0.8rem; text-transform: uppercase;">지도 시각화</h4>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;" onclick="toggleHeatmap()">🔥 히트맵 켜기/끄기</button>
+            </div>
+        </div>
+        <div class="card" style="padding: 1rem; margin: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <h4 style="margin-bottom: 0.5rem; font-size: 0.8rem; text-transform: uppercase;">필터</h4>
+            <select style="margin: 0; font-size: 0.8rem; padding: 0.4rem;">
+                <option>전체 유형</option>
+                <option>도로 파손</option>
+                <option>시설물 고장</option>
+            </select>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+  const reports = {{ reports | tojson }};
+  const defaultLat = reports.length ? reports[0].latitude : 36.5;
+  const defaultLng = reports.length ? reports[0].longitude : 127.8;
+  const zoomLevel = reports.length ? 13 : 7;
+
+  const map = L.map('map', {zoomControl: false}).setView([defaultLat, defaultLng], zoomLevel);
+  L.control.zoom({position: 'bottomright'}).addTo(map);
+  
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20
+  }).addTo(map);
+
+  const heatData = reports.map(r => [r.latitude, r.longitude, 0.7]);
+  const heatLayer = L.heatLayer(heatData, {radius: 30, blur: 20, maxZoom: 17}).addTo(map);
+
+  let heatVisible = true;
+  window.toggleHeatmap = () => {
+    if(heatVisible) map.removeLayer(heatLayer);
+    else heatLayer.addTo(map);
+    heatVisible = !heatVisible;
+  };
+
+  reports.forEach(r => {
+    const popupContent = `
+      <div style="min-width:280px; font-family: 'Inter', sans-serif; padding: 5px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span class="badge badge-${r.status === 'Resolved' ? 'success' : 'pending'}" style="font-size: 0.65rem;">${r.status === 'Received' ? '접수됨' : r.status === 'Reviewing' ? '검토중' : '처리완료'}</span>
+            <span style="font-weight: 800; color: var(--accent); font-size: 0.8rem;">💰 ${r.reward_points} P</span>
+        </div>
+        <h4 style="margin:0 0 10px 0; color:var(--primary); font-size: 1.1rem; font-weight: 800;">${r.category}</h4>
+        <img src="/static/${r.image_path}" style="width:100%; height: 120px; object-fit: cover; border-radius:10px; margin-bottom:12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" alt="Incident Image">
+        <p style="margin:6px 0; font-size:0.85rem; color: #4b5563;"><strong>📍 위치:</strong> ${r.address || '분석 중...'}</p>
+        <p style="margin:6px 0; font-size:0.85rem; color: #4b5563;"><strong>👤 제보자:</strong> ${r.reporter_name}</p>
+        <div style="margin-top:15px; border-top:1px solid #f1f5f9; padding-top:10px; text-align: right;">
+          <a href="/report/${r.id}" style="color:var(--primary); text-decoration:none; font-weight:700; font-size: 0.85rem;">전체 내용 보기 →</a>
+        </div>
+      </div>
+    `;
+    const icon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div style="background-color: var(--primary); width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(19,91,236,0.5);"></div>`,
+        iconSize: [12, 12],
+        iconAnchor: [6, 6]
+    });
+    L.marker([r.latitude, r.longitude], {icon: icon}).addTo(map).bindPopup(popupContent, {
+        className: 'premium-popup',
+        maxWidth: 300
+    });
+  });
+</script>
+<style>
+    .premium-popup .leaflet-popup-content-wrapper { border-radius: 16px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
+    .custom-div-icon { background: none; border: none; }
+</style>
+{% endblock %}

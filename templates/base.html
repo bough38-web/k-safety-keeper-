@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K-국민안전지킴이 (K-National Safety Keeper)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    if (localStorage.getItem('dark-mode') === 'true' || 
+        (!('dark-mode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark-mode');
+        document.body.classList.add('dark-mode');
+    }
+  </script>
+</head>
+<body>
+<header>
+  <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>🛡️ <span style="font-weight: 800; color: white;">K-국민안전지킴이</span></h1>
+    <nav>
+      <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">홈</a>
+      <a href="{{ url_for('create_report') }}" class="{{ 'active' if request.endpoint == 'create_report' }}">제보하기</a>
+      <a href="{{ url_for('safety_map') }}" class="{{ 'active' if request.endpoint == 'safety_map' }}">안전지도</a>
+      <a href="{{ url_for('admin') }}" class="{{ 'active' if request.endpoint == 'admin' }}">관리자</a>
+    </nav>
+  </div>
+</header>
+<div class="container">
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}
+        <div class="flash">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
