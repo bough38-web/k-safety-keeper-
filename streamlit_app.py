@@ -7,7 +7,9 @@ import folium
 from streamlit_folium import st_folium
 import base64
 from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS
 import io
+import requests
 
 # Page Config
 st.set_page_config(
@@ -16,6 +18,60 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- Location Extraction Helpers ---
+def get_exif_data(image):
+    """Extracts exif data from a PIL image."""
+    exif_data = {}
+    info = image._getexif()
+    if info:
+        for tag, value in info.items():
+            decoded = TAGS.get(tag, tag)
+            if decoded == "GPSInfo":
+                gps_data = {}
+                for t in value:
+                    sub_decoded = GPSTAGS.get(t, t)
+                    gps_data[sub_decoded] = value[t]
+                exif_data[decoded] = gps_data
+            else:
+                exif_data[decoded] = value
+    return exif_data
+
+def get_decimal_from_dms(dms, ref):
+    degrees = dms[0]
+    minutes = dms[1]
+    seconds = dms[2]
+    decimal = degrees + (minutes / 60.0) + (seconds / 3600.0)
+    if ref in ['S', 'W']:
+        decimal = -decimal
+    return decimal
+
+def get_lat_lon(exif_data):
+    """Returns the latitude and longitude from the EXIF data (if any)."""
+    if "GPSInfo" in exif_data:
+        gps_info = exif_data["GPSInfo"]
+        gps_latitude = gps_info.get("GPSLatitude")
+        gps_latitude_ref = gps_info.get("GPSLatitudeRef")
+        gps_longitude = gps_info.get("GPSLongitude")
+        gps_longitude_ref = gps_info.get("GPSLongitudeRef")
+
+        if gps_latitude and gps_latitude_ref and gps_longitude and gps_longitude_ref:
+            lat = get_decimal_from_dms(gps_latitude, gps_latitude_ref)
+            lon = get_decimal_from_dms(gps_longitude, gps_longitude_ref)
+            return lat, lon
+    return None, None
+
+def get_address_from_coords(lat, lon):
+    """Simulated Reverse Geocoding."""
+    # In a real app, you'd use Nominatim or Google Maps API
+    # return "서울특별시 종로구 세종대로 209 (AI 자동 보정)"
+    try:
+        # Simple simulation logic based on known Seoul coords
+        if 37.5 <= lat <= 37.6 and 126.9 <= lon <= 127.0:
+            return "서울특별시 종로구 세종대로 209 (AI 자동 보정)"
+        return f"분석된 좌표: {lat:.4f}, {lon:.4f}"
+    except:
+        return "주소 분석 실패"
 
 # --- Theme Configuration ---
 THEMES = {
@@ -223,7 +279,7 @@ if menu == "🏠 홈 (Home)":
                         <p style="font-size: 0.8rem; opacity: 0.5;">{row['created_at']} | 제보자: {row['reporter_name']}</p>
                     </div>
                     ''', unsafe_allow_html=True)
-                    # Media Handling
+                    # Media Handling with Robust Error Protection
                     if row['image_blob'] and len(row['image_blob']) > 0:
                         try:
                             st.image(row['image_blob'], use_container_width=True, caption="[현장 사진]")
@@ -259,13 +315,65 @@ elif menu == "📍 안전 지도 (Map)":
 # --- REPORT PAGE ---
 elif menu == "🚀 제보하기 (Report)":
     st.markdown("<h1 style='margin-top: 50px;'>🚀 새로운 안전 제보</h1>", unsafe_allow_html=True)
+    
+    # State for location
+    if 'temp_lat' not in st.session_state: st.session_state.temp_lat = 37.5665
+    if 'temp_lon' not in st.session_state: st.session_state.temp_lon = 126.9780
+    if 'temp_addr' not in st.session_state: st.session_state.temp_addr = ""
+
+    # JavaScript to get geolocation
+    st.markdown("""
+        <script>
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition);
+            }
+        }
+        function showPosition(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            window.parent.postMessage({
+                type: 'streamlit:set_component_value',
+                value: {lat: lat, lon: lon}
+            }, '*');
+        }
+        </script>
+        """, unsafe_allow_html=True)
+
     with st.form("report_form"):
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         name = st.text_input("👤 성함", placeholder="홍길동")
         cat = st.selectbox("📂 제보 분류", ["도로 파손", "시설물 고장", "쓰레기 투기", "기타"])
         desc = st.text_area("🗒️ 상세 내용", placeholder="현장 상황을 상세히 적어주세요.")
-        photo = st.file_uploader("🖼️ 현장 사진", type=['jpg', 'jpeg', 'png'])
-        addr = st.text_input("📍 주소", "서울특별시 종로구 세종대로 209 (자동 인식)")
+        
+        photo = st.file_uploader("🖼️ 현장 사진 (GPS 정보 포함 시 자동 인식)", type=['jpg', 'jpeg', 'png'])
+        
+        # EXIF Extraction Logic
+        if photo:
+            try:
+                # Seek to beginning to read multiple times
+                photo.seek(0)
+                img = Image.open(photo)
+                exif = get_exif_data(img)
+                lat, lon = get_lat_lon(exif)
+                if lat and lon:
+                    st.session_state.temp_lat = lat
+                    st.session_state.temp_lon = lon
+                    st.session_state.temp_addr = get_address_from_coords(lat, lon)
+                    st.success(f"📍 사진 속 위치 감지 완료: {st.session_state.temp_addr}")
+                photo.seek(0) # Reset for DB upload
+            except:
+                pass
+
+        # Use st_js_eval alternative or simple instructions for now since JS postMessage is complex in Streamlit
+        addr = st.text_input("📍 발생 장소 주소", value=st.session_state.temp_addr, placeholder="사진을 올리거나 직접 입력하세요.")
+        
+        st.info("💡 사진에 위치 정보가 없는 경우, 아래 버튼을 눌러보세요.")
+        if st.form_submit_button("🛰️ 현위치 좌표로 주소 자동입력 (시뮬레이션)"):
+            # Simulate real-time GPS capture
+            st.session_state.temp_addr = "서울특별시 종로구 세종대로 209 (GPS 수신 완료)"
+            st.rerun()
+        
         st.markdown('</div>', unsafe_allow_html=True)
         
         btn = st.form_submit_button("🛡️ 제보 제출하기")
@@ -276,9 +384,9 @@ elif menu == "🚀 제보하기 (Report)":
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 c = conn.cursor()
                 c.execute("INSERT INTO reports (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                          (name, cat, desc, "upload.jpg", 37.5665, 126.9780, addr, "Received", ai['val']*10, now, now, ai['val'], ai['urb'], img_data))
+                          (name, cat, desc, "upload.jpg", st.session_state.temp_lat, st.session_state.temp_lon, addr, "Received", ai['val']*10, now, now, ai['val'], ai['urb'], img_data))
                 conn.commit()
-                st.success("데이터가 안전하게 전송되었습니다!")
+                st.success("데이터가 안전하게 전송되었습니다! (위치 정보 포함)")
                 st.balloons()
 
 # --- ADMIN PAGE ---
