@@ -405,12 +405,12 @@ elif menu == "🚀 사고 제보 (Report)":
                 ai = sim_analysis(cat)
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
-                # Explicitly cast to ensure SQLite compatibility
+                # Explicitly cast to ensure SQLite compatibility (Fallback to Seoul central if None)
                 b_name = str(name)
                 b_cat = str(cat)
                 b_desc = str(desc)
-                b_lat = float(st.session_state.e_lat)
-                b_lon = float(st.session_state.e_lon)
+                b_lat = float(st.session_state.e_lat if st.session_state.e_lat is not None else 37.5665)
+                b_lon = float(st.session_state.e_lon if st.session_state.e_lon is not None else 126.9780)
                 b_addr = str(addr)
                 b_val = int(ai['val'])
                 b_urb = str(ai['urb'])
