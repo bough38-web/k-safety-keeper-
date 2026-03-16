@@ -363,68 +363,86 @@ elif menu == "🚀 사고 제보 (Report)":
     if 'e_lon' not in st.session_state: st.session_state.e_lon = None
     if 'e_addr' not in st.session_state: st.session_state.e_addr = ""
 
+    # --- Reactive Location & AI Analysis Logic (Outside Form for immediate reflection) ---
+    st.markdown('<div class="expert-card">', unsafe_allow_html=True)
+    st.markdown("### 📸 현장 분석 (AI Analysis)")
+    photo = st.file_uploader("🖼️ Evidence Photo (Auto-Location Support)", type=['jpg', 'jpeg', 'png'])
+    if photo:
+        try:
+            photo.seek(0)
+            img = Image.open(photo)
+            exif = get_exif_data(img)
+            lat, lon = get_lat_lon(exif)
+            if lat and lon:
+                st.session_state.e_lat, st.session_state.e_lon = lat, lon
+                st.session_state.e_addr = get_address_from_coords(lat, lon)
+                st.success(f"📍 GPS 데이터 추출 성공: {st.session_state.e_addr}")
+            photo.seek(0)
+        except: pass
+
+    st.markdown("---")
+    st.write("📡 **Precision Geolocation**")
+    if st.checkbox("🛰️ 위성 좌표 수신 허용 (Real-Time GPS)"):
+        loc = streamlit_js_eval(data_of='get_location', key='gps_expert')
+        if loc:
+            st.session_state.e_lat = loc['coords']['latitude']
+            st.session_state.e_lon = loc['coords']['longitude']
+            st.session_state.e_addr = get_address_from_coords(st.session_state.e_lat, st.session_state.e_lon)
+            st.success(f"✅ 현위치 위성 수신 완료: {st.session_state.e_addr}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- Submission Form ---
     with st.form("report_form_expert"):
         st.markdown('<div class="expert-card">', unsafe_allow_html=True)
         name = st.text_input("👤 Reporter Name", placeholder="이름을 입력하세요")
         cat = st.selectbox("📂 Category", ["도로 파손", "시설물 고장", "쓰레기 투기", "기본 안전 위험"])
         desc = st.text_area("🗒️ Description", placeholder="현장 상황을 전문가처럼 상세히 기술해주세요.")
         
-        photo = st.file_uploader("🖼️ Evidence Photo (Auto-Location Support)", type=['jpg', 'jpeg', 'png'])
-        if photo:
-            try:
-                photo.seek(0)
-                img = Image.open(photo)
-                exif = get_exif_data(img)
-                lat, lon = get_lat_lon(exif)
-                if lat and lon:
-                    st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                    st.session_state.e_addr = get_address_from_coords(lat, lon)
-                    st.success(f"📍 GPS 데이터 추출 성공: {st.session_state.e_addr}")
-                photo.seek(0)
-            except: pass
-
-        st.markdown("---")
-        st.write("📡 **Precision Geolocation**")
-        if st.checkbox("🛰️ 위성 좌표 수신 허용 (Real-Time GPS)"):
-            loc = streamlit_js_eval(data_of='get_location', key='gps_expert')
-            if loc:
-                st.session_state.e_lat = loc['coords']['latitude']
-                st.session_state.e_lon = loc['coords']['longitude']
-                st.session_state.e_addr = get_address_from_coords(st.session_state.e_lat, st.session_state.e_lon)
-                st.success(f"✅ 현위치 위성 수신 완료: {st.session_state.e_addr}")
-
-        addr = st.text_input("📍 Location Address", value=st.session_state.e_addr)
+        # Use session state for address, allowing manual editing
+        addr = st.text_input("📍 Location Address", value=st.session_state.e_addr if st.session_state.e_addr else "")
         st.markdown('</div>', unsafe_allow_html=True)
         
         btn = st.form_submit_button("🛡️ SUBMIT SAFE REPORT")
-        if btn and name and photo:
-            try:
-                # Top 10 Tech #10: Data Integrity Polish
-                photo.seek(0)
-                img_data = photo.read()
-                ai = sim_analysis(cat)
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Explicitly cast to ensure SQLite compatibility (Fallback to Seoul central if None)
-                b_name = str(name)
-                b_cat = str(cat)
-                b_desc = str(desc)
-                b_lat = float(st.session_state.e_lat if st.session_state.e_lat is not None else 37.5665)
-                b_lon = float(st.session_state.e_lon if st.session_state.e_lon is not None else 126.9780)
-                b_addr = str(addr)
-                b_val = int(ai['val'])
-                b_urb = str(ai['urb'])
-                
-                c = conn.cursor()
-                c.execute("""INSERT INTO reports 
-                    (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) 
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (b_name, b_cat, b_desc, "m_up.jpg", b_lat, b_lon, b_addr, "Verified", b_val*10, now, now, b_val, b_urb, sqlite3.Binary(img_data)))
-                conn.commit()
-                st.success("✅ 제보가 안전하게 접수되었습니다. (Expert System Logged)")
-                st.balloons()
-            except Exception as e:
-                st.error(f"❌ 데이터 정합성 오류: {str(e)}")
+        if btn:
+            if not name:
+                st.error("👤 제보자 이름을 입력해주세요.")
+            elif not photo:
+                st.error("🖼️ 현장 사진을 업로드해주세요.")
+            elif not addr:
+                st.error("📍 위치 주소를 확인해주세요.")
+            else:
+                try:
+                    # Top 10 Tech #10: Data Integrity Polish
+                    photo.seek(0)
+                    img_data = photo.read()
+                    ai = sim_analysis(cat)
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Explicitly cast to ensure SQLite compatibility (Fallback to Seoul central if None)
+                    b_name = str(name)
+                    b_cat = str(cat)
+                    b_desc = str(desc)
+                    b_lat = float(st.session_state.e_lat if st.session_state.e_lat is not None else 37.5665)
+                    b_lon = float(st.session_state.e_lon if st.session_state.e_lon is not None else 126.9780)
+                    b_addr = str(addr)
+                    b_val = int(ai['val'])
+                    b_urb = str(ai['urb'])
+                    
+                    c = conn.cursor()
+                    c.execute("""INSERT INTO reports 
+                        (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) 
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (b_name, b_cat, b_desc, "m_up.jpg", b_lat, b_lon, b_addr, "Verified", b_val*10, now, now, b_val, b_urb, sqlite3.Binary(img_data)))
+                    conn.commit()
+                    st.success("✅ 제보가 안전하게 접수되었습니다. (Expert System Logged)")
+                    st.balloons()
+                    # Clear state after success
+                    st.session_state.e_lat = None
+                    st.session_state.e_lon = None
+                    st.session_state.e_addr = ""
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 데이터 정합성 오류: {str(e)}")
 
 elif menu == "⚙️ 통합 관제 (Admin)":
     st.markdown("<h2 style='margin-top: 60px;'>⚙️ COMMAND CENTER</h2>", unsafe_allow_html=True)
