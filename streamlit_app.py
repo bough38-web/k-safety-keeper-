@@ -256,44 +256,43 @@ def get_lat_lon(exif_data):
     except: return None, None
 
 def get_address_from_coords(lat, lon):
-    """지수 추론: Nominatim API를 통한 한국어 주소 변환 (Resilient)"""
-    # 0.0, 0.0 등 유효하지 않은 좌표 필터링
-    if abs(lat) < 0.1 and abs(lon) < 0.1:
+    """[Expert Technique #1] Double-Layer Geocoding Resilience & Korean Address Intelligence"""
+    if not lat or not lon or (abs(lat) < 0.1 and abs(lon) < 0.1):
         return ""
-        
+    
+    # 1. Primary Attempt: High-Precision Nominatim with Expert Identification
     try:
-        # User-Agent를 더욱 구체화하여 차단 방지
-        headers = {
-            "User-Agent": f"K-Safety-Keeper-v2.5-Expert-System-{time.time()}",
-            "Accept-Language": "ko,en-US;q=0.9,en;q=0.8"
+        expert_headers = {
+            "User-Agent": f"K-Safety-Keeper-Precision-Engine-v2.5-{uuid.uuid4().hex[:8]}",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"
         }
-        response = requests.get(
-            "https://nominatim.openstreetmap.org/reverse",
-            params={
-                "lat": lat,
-                "lon": lon,
-                "format": "jsonv2",
-                "zoom": 18,
-                "addressdetails": 1
-            },
-            headers=headers,
-            timeout=10,
-        )
-        response.raise_for_status()
-        data = response.json()
+        params = {
+            "lat": lat, "lon": lon, "format": "jsonv2", "zoom": 18, "addressdetails": 1
+        }
+        resp = requests.get("https://nominatim.openstreetmap.org/reverse", params=params, headers=expert_headers, timeout=12)
+        resp.raise_for_status()
+        data = resp.json()
         
-        # 도로명 주소가 있으면 우선 사용, 없으면 전체 주소 사용
-        addr_details = data.get("address", {})
-        road = addr_details.get("road")
-        city = addr_details.get("city") or addr_details.get("province") or addr_details.get("city_district")
+        addr = data.get("address", {})
+        # Expert Heuristic for Korean Addresses
+        parts = []
+        # Priority 1: City/Province
+        city = addr.get("city") or addr.get("province") or addr.get("city_district")
+        if city: parts.append(city)
+        # Priority 2: Road Name / Neighborhood
+        road = addr.get("road") or addr.get("suburb") or addr.get("neighbourhood")
+        if road: parts.append(road)
+        # Priority 3: Building Name/Number
+        house = addr.get("house_number") or addr.get("building")
+        if house: parts.append(house)
         
-        if road and city:
-            return f"{city} {road} (AI 보정)"
+        if len(parts) >= 2:
+            return " ".join(parts) + " (AI 정밀 보정)"
+        return data.get("display_name", "").split(",")[0].strip() or f"정밀 좌표: {lat:.6f}, {lon:.6f}"
         
-        return data.get("display_name") or f"정밀 좌표: {lat:.5f}, {lon:.5f}"
     except Exception as e:
-        # 로깅 대신 주소 필드에 에러 표시 지양, fallback 텍스트만 유지
-        return f"정밀 좌표: {lat:.5f}, {lon:.5f}"
+        # Fallback Technique: Clean Failover to Precision Badge
+        return f"정밀 좌표: {lat:.6f}, {lon:.6f}"
 
 # --- APP FLOW ---
 expert_header()
@@ -384,57 +383,59 @@ elif menu == "🚀 사고 제보 (Report)":
     if 'e_lon' not in st.session_state: st.session_state.e_lon = None
     if 'e_addr' not in st.session_state: st.session_state.e_addr = ""
 
-    # --- Reactive Location & AI Analysis Logic (Outside Form for immediate reflection) ---
-    st.markdown('<div class="expert-card">', unsafe_allow_html=True)
-    st.markdown("### 📸 1단계: 현장 분석 (AI Analysis)")
-    st.info("💡 모바일에서 직접 촬영 시 개인정보보호를 위해 GPS 정보가 제외될 수 있습니다. 이 경우 아래 '위성 좌표 수신' 기능을 이용해 주세요.")
-    photo = st.file_uploader("🖼️ 제보 사진 업로드 (GPS 자동 추출 지원)", type=['jpg', 'jpeg', 'png'])
-    if photo:
-        try:
-            with st.status("🔍 사진 분석 중...", expanded=False) as status:
+    # --- [Expert Tech #3] Location Status Dashboard UI ---
+    st.markdown('<div class="expert-card" style="border-top: 4px solid var(--primary);">', unsafe_allow_html=True)
+    st.markdown("### 🛰️ 정밀 위치 분석 엔진 (V2.5 Expert)")
+    
+    col_anal1, col_anal2 = st.columns([1, 1])
+    
+    with col_anal1:
+        st.markdown("#### 📸 1단계: 시각 데이터 분석")
+        photo = st.file_uploader("🖼️ 제보 사진 업로드 (GPS 추출)", type=['jpg', 'jpeg', 'png'])
+        if photo:
+            try:
+                # [Expert Tech #2] Atomic Session Guard
                 photo.seek(0)
                 img = Image.open(photo)
                 exif = get_exif_data(img)
                 lat, lon = get_lat_lon(exif)
                 if lat and lon:
-                    if lat != st.session_state.e_lat or lon != st.session_state.e_lon:
+                    # Only rerun if it's a new location
+                    if st.session_state.e_lat != lat or st.session_state.e_lon != lon:
                         st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                        addr_res = get_address_from_coords(lat, lon)
-                        st.session_state.e_addr = addr_res
-                        status.update(label=f"✅ 위치 추출 완료: {addr_res}", state="complete", expanded=False)
+                        st.session_state.e_addr = get_address_from_coords(lat, lon)
+                        st.success("✅ 사진에서 정밀 좌표를 추출했습니다.")
                         st.rerun()
-                    else:
-                        status.update(label="✅ 이미 분석된 위치입니다.", state="complete", expanded=False)
                 else:
-                    status.update(label="⚠️ 사진에 GPS 정보가 없습니다. 버튼을 눌러 위치를 수집하세요.", state="error", expanded=False)
-                photo.seek(0)
-        except Exception as e:
-            st.error(f"❌ 분석 오류: {str(e)}")
+                    st.warning("⚠️ 사진에 위치 정보가 없습니다. 2단계 수집을 진행하세요.")
+            except: pass
+
+    with col_anal2:
+        st.markdown("#### 📡 2단계: 위성 실시간 동기화")
+        st.info("💡 모바일 카메라 촬영 시에는 아래 버튼을 눌러 위치를 매칭해주세요.")
+        if st.button("🏹 현위치 위성 수신 (Force Sync)", use_container_width=True):
+            st.session_state.gps_trigger = time.time()
+            # Explicit location request
+            loc = streamlit_js_eval(data_of='get_location', key=f'gps_expert_{st.session_state.gps_trigger}')
+            if loc:
+                n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
+                st.session_state.e_lat, st.session_state.e_lon = n_lat, n_lon
+                with st.spinner("📍 위치 주소 변환 중..."):
+                    st.session_state.e_addr = get_address_from_coords(n_lat, n_lon)
+                st.success("✅ 위성 수신 완료")
+                st.rerun()
 
     st.markdown("---")
-    st.markdown("### 📡 2단계: 정밀 위치 확인 (Precision Geolocation)")
+    # [Expert Tech #5] Unified Reactive Input
+    st.text_input("📍 최종 분석된 위치 주소 (편집 가능)", key="e_addr")
     
-    col_gps1, col_gps2 = st.columns([1, 1])
-    with col_gps1:
-        gps_active = st.checkbox("🛰️ 위성 좌표 수신 자동화", key="gps_checkbox")
-    with col_gps2:
-        if st.button("🎯 현위치 즉시 수집 (Manual Refresh)", use_container_width=True):
-            st.session_state.gps_trigger = time.time() # Force trigger
-
-    if gps_active or 'gps_trigger' in st.session_state:
-        loc = streamlit_js_eval(data_of='get_location', key=f'gps_expert_{st.session_state.get("gps_trigger", 0)}')
-        if loc:
-            new_lat = loc['coords']['latitude']
-            new_lon = loc['coords']['longitude']
-            if new_lat != st.session_state.e_lat or new_lon != st.session_state.e_lon:
-                st.session_state.e_lat = new_lat
-                st.session_state.e_lon = new_lon
-                with st.spinner("📍 현재 위치 주소 변환 중..."):
-                    st.session_state.e_addr = get_address_from_coords(new_lat, new_lon)
-                st.rerun()
-    
-    # Move address input here for immediate reflection - Using key for robust state binding
-    st.text_input("📍 최종 제보 위치 (주소 확인 및 수정)", key="e_addr")
+    # [Expert Tech #7] Visual Verification Badge
+    if st.session_state.e_lat and st.session_state.e_lon:
+        st.markdown(f"""
+            <div style="background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 8px; border: 1px dashed #3b82f6; margin-bottom: 20px;">
+                <span style="color: #3b82f6; font-weight: 700;">🎯 정밀 분석 좌표:</span> {st.session_state.e_lat:.6f}, {st.session_state.e_lon:.6f}
+            </div>
+        """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- Submission Form ---
