@@ -430,4 +430,7 @@ def safety_map():
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    # 로컬 실행 시에만 작동하도록 설정 (Debug 모드 오버라이드 방지)
+    import sys
+    if 'streamlit' not in sys.modules:
+        app.run(debug=True, host='127.0.0.1', port=5000)
