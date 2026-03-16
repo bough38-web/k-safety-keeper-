@@ -268,43 +268,60 @@ def get_lat_lon(exif_data):
     except Exception as e:
         return None, None
 
-def get_address_from_coords(lat, lon):
-    """[Expert Technique #1] Double-Layer Geocoding Resilience & Korean Address Intelligence"""
+def get_address_from_coords(lat, lon, zoom=18):
+    """[v3.1 Expert] Multi-Zoom Fallback Geocoding Engine"""
     if not lat or not lon or (abs(lat) < 0.1 and abs(lon) < 0.1):
         return ""
     
-    # 1. Primary Attempt: High-Precision Nominatim with Expert Identification
+    # User-Agent Rotation (Expert Technique #2)
+    expert_ua = [
+        f"K-Safety-Keeper-v3.1-Alpha-{uuid.uuid4().hex[:5]}",
+        f"Safety-Precision-Engine-v3.1-{uuid.uuid4().hex[:5]}",
+        f"National-Safety-Service-Expert-{uuid.uuid4().hex[:5]}"
+    ]
+    
     try:
-        expert_headers = {
-            "User-Agent": f"K-Safety-Keeper-Precision-Engine-v2.5-{uuid.uuid4().hex[:8]}",
+        headers = {
+            "User-Agent": random.choice(expert_ua),
             "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"
         }
         params = {
-            "lat": lat, "lon": lon, "format": "jsonv2", "zoom": 18, "addressdetails": 1
+            "lat": lat, "lon": lon, "format": "jsonv2", "zoom": zoom, "addressdetails": 1
         }
-        resp = requests.get("https://nominatim.openstreetmap.org/reverse", params=params, headers=expert_headers, timeout=12)
+        resp = requests.get("https://nominatim.openstreetmap.org/reverse", params=params, headers=headers, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         
         addr = data.get("address", {})
-        # Expert Heuristic for Korean Addresses
         parts = []
-        # Priority 1: City/Province
+        
+        # Expert String Builder (v3.1)
+        # 1. State/City
         city = addr.get("city") or addr.get("province") or addr.get("city_district")
         if city: parts.append(city)
-        # Priority 2: Road Name / Neighborhood
-        road = addr.get("road") or addr.get("suburb") or addr.get("neighbourhood")
-        if road: parts.append(road)
-        # Priority 3: Building Name/Number
+        # 2. Suburb/Neighborhood (동/면/읍)
+        suburb = addr.get("suburb") or addr.get("neighbourhood") or addr.get("town") or addr.get("village")
+        if suburb: parts.append(suburb)
+        # 3. Road / House
+        road = addr.get("road")
         house = addr.get("house_number") or addr.get("building")
+        if road: parts.append(road)
         if house: parts.append(house)
         
         if len(parts) >= 2:
-            return " ".join(parts) + " (AI 정밀 보정)"
+            suffix = f" (AI 보정 Z{zoom})"
+            return " ".join(parts) + suffix
+            
+        # [Expert Tech #1] Recursive Fallback if not enough detail found
+        if zoom > 14:
+            return get_address_from_coords(lat, lon, zoom=zoom-2)
+            
         return data.get("display_name", "").split(",")[0].strip() or f"정밀 좌표: {lat:.6f}, {lon:.6f}"
         
     except Exception as e:
-        # Fallback Technique: Clean Failover to Precision Badge
+        if zoom > 14:
+            time.sleep(0.5) # Short delay before retry
+            return get_address_from_coords(lat, lon, zoom=zoom-2)
         return f"정밀 좌표: {lat:.6f}, {lon:.6f}"
 
 # --- APP FLOW ---
@@ -447,10 +464,28 @@ elif menu == "🚀 사고 제보 (Report)":
 
     with col_v3_2:
         st.markdown("#### 📡 STEP 2: 위성 동기화")
-        st.info("💡 사진의 위치가 다르거나 없을 때 아래 버튼을 누르세요.")
-        if st.button("🎯 현위치 위성 수집 (Direct Signal)", use_container_width=True):
+        
+        # [Expert Tech v3.1] Pulse Guidance Logic
+        if photo and not st.session_state.e_lat:
+            st.warning("📍 사진에 위치 정보가 누락되었습니다. 아래 버튼을 눌러 위치를 맞춰주세요!")
+            st.markdown("""
+                <style>
+                @keyframes pulse-sync {
+                    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+                    70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+                }
+                .stButton > button {
+                    animation: pulse-sync 1.5s infinite;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("💡 사진의 위치가 다르거나 없을 때 아래 버튼을 누르세요.")
+            
+        if st.button("🎯 현위치 위성 수집 (Expert Sync)", use_container_width=True):
             st.session_state.gps_v3_trigger = time.time()
-            add_diag("위성 신호 탐색 시작...")
+            add_diag("위성 신호 탐색 시작 (High Accuracy)...")
             loc = streamlit_js_eval(data_of='get_location', key=f'v3_gps_{st.session_state.gps_v3_trigger}')
             if loc:
                 n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
@@ -458,10 +493,10 @@ elif menu == "🚀 사고 제보 (Report)":
                 add_diag(f"위성 수신 성공: {n_lat:.6f}, {n_lon:.6f}")
                 addr_res = get_address_from_coords(n_lat, n_lon)
                 st.session_state.e_addr = addr_res
-                add_diag(f"주소 변환 성공: {addr_res}")
+                add_diag(f"주소 변환 결과: {addr_res}")
                 st.rerun()
             else:
-                add_diag("❌ 위성 신호 수신 실패 (권한 또는 GPS 비활성)")
+                add_diag("❌ 위성 신호 수신 실패")
 
     st.markdown("---")
     
@@ -469,9 +504,9 @@ elif menu == "🚀 사고 제보 (Report)":
     if st.session_state.e_lat:
         st.markdown(f"""
             <div style="background: #1e293b; color: #38bdf8; padding: 15px; border-radius: 10px; border-left: 5px solid #38bdf8; margin-bottom: 20px;">
-                <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">CURRENT SIGNAL LOCK</h4>
+                <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">CURRENT SIGNAL LOCK (v3.1)</h4>
                 <div style="font-size: 1.2rem; font-weight: 800; font-family: monospace;">LAT: {st.session_state.e_lat:.6f} | LON: {st.session_state.e_lon:.6f}</div>
-                <div style="margin-top: 5px; font-size: 0.95rem; color: #94a3b8;">📍 {st.session_state.e_addr or '주소 분석 중...'}</div>
+                <div style="margin-top: 5px; font-size: 1.1rem; color: #f8fafc; font-weight: 700;">📍 {st.session_state.e_addr or '주소 수집 버튼을 눌러주세요'}</div>
             </div>
         """, unsafe_allow_html=True)
 
