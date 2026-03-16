@@ -222,7 +222,7 @@ def expert_header():
         <div class="expert-nav">
             <div style="font-weight: 900; font-size: 1.4rem; color: white;">🛡️ K-SAFETY KEEPER</div>
             <div style="display: flex; align-items: center; color: white; font-size: 0.85rem; font-weight: 600;">
-                <span class="status-dot"></span> <span class="status-dot-text">SYSTEM LIVE | v3.0 Ultimate Expert</span>
+                <span class="status-dot"></span> <span class="status-dot-text">SYSTEM LIVE | v3.2 Resilience Expert</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -426,9 +426,22 @@ elif menu == "🚀 사고 제보 (Report)":
         st.session_state.diag_logs = []
         st.session_state.clear_location_now = False
 
-    # --- [Expert Technique v3.0] Ultimate Diagnostic Dashboard ---
+    # --- [v3.2 Expert] Persistent JS Geolocation Trigger ---
+    if st.session_state.get('gps_v3_active'):
+        # Keep this element rendered to capture result
+        loc = streamlit_js_eval(data_of='get_location', key=f'v3_gps_fixed_{st.session_state.get("gps_v3_key", 0)}')
+        if loc:
+            n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
+            st.session_state.e_lat, st.session_state.e_lon = n_lat, n_lon
+            add_diag(f"위성 수신 성공: {n_lat:.6f}, {n_lon:.6f}")
+            st.session_state.e_addr = get_address_from_coords(n_lat, n_lon)
+            add_diag(f"주소 변환 결과: {st.session_state.e_addr}")
+            st.session_state.gps_v3_active = False 
+            st.rerun()
+
+    # --- [Expert Technique v3.2] Mobile Resilience Dashboard ---
     st.markdown('<div class="expert-card" style="border-top: 5px solid #3b82f6;">', unsafe_allow_html=True)
-    st.markdown("### 🛰️ ULTIMATE GEOLOCATION ENGINE v3.0")
+    st.markdown("### 🛰️ ULTIMATE GEOLOCATION ENGINE v3.2")
     
     with st.expander("🔍 전문 분석 진단 콘솔 (Diagnostic Console)", expanded=True):
         if not st.session_state.diag_logs:
@@ -436,67 +449,58 @@ elif menu == "🚀 사고 제보 (Report)":
         for log in st.session_state.diag_logs[-5:]: # Show last 5 logs
             st.code(log)
 
-    col_v3_1, col_v3_2 = st.columns(2)
-    
-    with col_v3_1:
-        st.markdown("#### 📸 STEP 1: 사진 분석")
-        photo = st.file_uploader("🖼️ 증거 사진 첨부 (Auto-Analysis)", type=['jpg', 'jpeg', 'png'], key="uploader_v3")
-        if photo:
-            try:
-                photo.seek(0)
-                img = Image.open(photo)
-                exif = get_exif_data(img)
-                lat, lon = get_lat_lon(exif)
-                if lat and lon:
-                    if st.session_state.e_lat != lat or st.session_state.e_lon != lon:
-                        st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                        add_diag(f"사진 GPS 추출 성공: {lat:.6f}, {lon:.6f}")
-                        addr_res = get_address_from_coords(lat, lon)
-                        st.session_state.e_addr = addr_res
-                        add_diag(f"주소 변환 성공: {addr_res}")
-                        st.rerun()
-                else:
-                    if not st.session_state.get('warned_exif'):
-                        add_diag("⚠️ 사진에 GPS 메타데이터가 없습니다. 2단계를 시도하세요.")
-                        st.session_state.warned_exif = True
-            except Exception as e:
-                add_diag(f"❌ 분석 엔진 오류: {str(e)}")
-
-    with col_v3_2:
-        st.markdown("#### 📡 STEP 2: 위성 동기화")
-        
-        # [Expert Tech v3.1] Pulse Guidance Logic
-        if photo and not st.session_state.e_lat:
-            st.warning("📍 사진에 위치 정보가 누락되었습니다. 아래 버튼을 눌러 위치를 맞춰주세요!")
-            st.markdown("""
-                <style>
-                @keyframes pulse-sync {
-                    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-                    70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-                }
-                .stButton > button {
-                    animation: pulse-sync 1.5s infinite;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("💡 사진의 위치가 다르거나 없을 때 아래 버튼을 누르세요.")
-            
-        if st.button("🎯 현위치 위성 수집 (Expert Sync)", use_container_width=True):
-            st.session_state.gps_v3_trigger = time.time()
-            add_diag("위성 신호 탐색 시작 (High Accuracy)...")
-            loc = streamlit_js_eval(data_of='get_location', key=f'v3_gps_{st.session_state.gps_v3_trigger}')
-            if loc:
-                n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
-                st.session_state.e_lat, st.session_state.e_lon = n_lat, n_lon
-                add_diag(f"위성 수신 성공: {n_lat:.6f}, {n_lon:.6f}")
-                addr_res = get_address_from_coords(n_lat, n_lon)
-                st.session_state.e_addr = addr_res
-                add_diag(f"주소 변환 결과: {addr_res}")
-                st.rerun()
+    # Technique #1: Single Column Vertical Layout for Mobile
+    st.markdown("#### 📸 STEP 1: 사진 분석")
+    photo = st.file_uploader("🖼️ 증거 사진 첨부 (Auto-Analysis)", type=['jpg', 'jpeg', 'png'], key="uploader_v3")
+    if photo:
+        try:
+            photo.seek(0)
+            img = Image.open(photo)
+            exif = get_exif_data(img)
+            lat, lon = get_lat_lon(exif)
+            if lat and lon:
+                if st.session_state.e_lat != lat or st.session_state.e_lon != lon:
+                    st.session_state.e_lat, st.session_state.e_lon = lat, lon
+                    add_diag(f"사진 GPS 추출 성공: {lat:.6f}, {lon:.6f}")
+                    st.session_state.e_addr = get_address_from_coords(lat, lon)
+                    add_diag(f"주소 변환 결과: {st.session_state.e_addr}")
+                    st.rerun()
             else:
-                add_diag("❌ 위성 신호 수신 실패")
+                if not st.session_state.get('warned_exif'):
+                    add_diag("⚠️ 사진에 GPS 메타데이터가 없습니다. 아래 버튼을 클릭하십시오.")
+                    st.session_state.warned_exif = True
+        except Exception as e:
+            add_diag(f"❌ 분석 엔진 오류: {str(e)}")
+
+    st.markdown("---")
+    st.markdown("#### 📡 STEP 2: 현위치 동기화 (Essential for Mobile)")
+    
+    # [Expert Tech v3.2] Pulsing Guidance for missing GPS
+    if photo and not st.session_state.e_lat:
+        st.warning("📍 사진 위치가 확인되지 않습니다. 아래 파란색 버튼을 눌러 위치를 동기화하세요!")
+        st.markdown("""
+            <style>
+            @keyframes pulse-v32 {
+                0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+                70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+                100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+            }
+            div[data-testid="stButton"] > button[kind="secondary"] {
+                animation: pulse-v32 1.5s infinite !important;
+                background-color: #3b82f6 !important;
+                color: white !important;
+                font-weight: 800 !important;
+                height: 3.5rem !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("💡 사진의 위치가 다르거나 없을 때 아래 버튼을 누르세요.")
+        
+    if st.button("🏹 현위치 위성 수집 (Expert Sync Start)", use_container_width=True):
+        st.session_state.gps_v3_active = True
+        st.session_state.gps_v3_key = time.time()
+        add_diag("위성 신호 탐색 시작...")
 
     st.markdown("---")
     
@@ -504,9 +508,9 @@ elif menu == "🚀 사고 제보 (Report)":
     if st.session_state.e_lat:
         st.markdown(f"""
             <div style="background: #1e293b; color: #38bdf8; padding: 15px; border-radius: 10px; border-left: 5px solid #38bdf8; margin-bottom: 20px;">
-                <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">CURRENT SIGNAL LOCK (v3.1)</h4>
+                <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">CURRENT SIGNAL LOCK (v3.2)</h4>
                 <div style="font-size: 1.2rem; font-weight: 800; font-family: monospace;">LAT: {st.session_state.e_lat:.6f} | LON: {st.session_state.e_lon:.6f}</div>
-                <div style="margin-top: 5px; font-size: 1.1rem; color: #f8fafc; font-weight: 700;">📍 {st.session_state.e_addr or '주소 수집 버튼을 눌러주세요'}</div>
+                <div style="margin-top: 5px; font-size: 1.1rem; color: #f8fafc; font-weight: 700;">📍 {st.session_state.e_addr or '주소 수집 중...'}</div>
             </div>
         """, unsafe_allow_html=True)
 
