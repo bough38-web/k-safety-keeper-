@@ -10,6 +10,7 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import io
 import requests
+from streamlit_js_eval import streamlit_js_eval
 
 # Page Config
 st.set_page_config(
@@ -289,7 +290,7 @@ if menu == "🏠 홈 (Home)":
                         try:
                             st.image(os.path.join('static', row['image_path']), use_container_width=True)
                         except:
-                            st.info("🖼️ 이미지를 로로드할 수 없습니다.")
+                            st.info("🖼️ 이미지를 로드할 수 없습니다.")
 
     with col_b:
         st.markdown("## 📊 시스템 현황")
@@ -365,14 +366,17 @@ elif menu == "🚀 제보하기 (Report)":
             except:
                 pass
 
-        # Use st_js_eval alternative or simple instructions for now since JS postMessage is complex in Streamlit
+        # Dedicated Real Geolocation Capture (Outside the main form fields to prevent submission issues)
+        st.write("📡 정밀 위치 수집")
+        if st.checkbox("🛰️ 실시간 현위치 좌표 수신 허용"):
+            loc = streamlit_js_eval(data_of='get_location', key='gps')
+            if loc:
+                st.session_state.temp_lat = loc['coords']['latitude']
+                st.session_state.temp_lon = loc['coords']['longitude']
+                st.session_state.temp_addr = get_address_from_coords(st.session_state.temp_lat, st.session_state.temp_lon)
+                st.success(f"✅ 위성 좌표 수신 성공: {st.session_state.temp_addr}")
+
         addr = st.text_input("📍 발생 장소 주소", value=st.session_state.temp_addr, placeholder="사진을 올리거나 직접 입력하세요.")
-        
-        st.info("💡 사진에 위치 정보가 없는 경우, 아래 버튼을 눌러보세요.")
-        if st.form_submit_button("🛰️ 현위치 좌표로 주소 자동입력 (시뮬레이션)"):
-            # Simulate real-time GPS capture
-            st.session_state.temp_addr = "서울특별시 종로구 세종대로 209 (GPS 수신 완료)"
-            st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
         

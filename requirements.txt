@@ -6,3 +6,4 @@ pandas
 pillow
 requests
 gunicorn
+streamlit-js-eval
