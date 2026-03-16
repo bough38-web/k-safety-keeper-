@@ -230,7 +230,10 @@ if menu == "🏠 홈 (Home)":
                         except:
                             st.warning("이미지 로드 실패")
                     elif row['image_path'] and os.path.exists(os.path.join('static', row['image_path'])):
-                        st.image(os.path.join('static', row['image_path']), use_container_width=True)
+                        try:
+                            st.image(os.path.join('static', row['image_path']), use_container_width=True)
+                        except:
+                            st.info("🖼️ 이미지를 로로드할 수 없습니다.")
 
     with col_b:
         st.markdown("## 📊 시스템 현황")
