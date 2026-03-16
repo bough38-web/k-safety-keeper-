@@ -389,6 +389,9 @@ elif menu == "🚀 사고 제보 (Report)":
             st.session_state.e_lon = loc['coords']['longitude']
             st.session_state.e_addr = get_address_from_coords(st.session_state.e_lat, st.session_state.e_lon)
             st.success(f"✅ 현위치 위성 수신 완료: {st.session_state.e_addr}")
+    
+    # Move address input here for immediate reflection
+    st.session_state.e_addr = st.text_input("📍 분석된 위치 (주소 직접 수정 가능)", value=st.session_state.e_addr)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- Submission Form ---
@@ -397,9 +400,6 @@ elif menu == "🚀 사고 제보 (Report)":
         name = st.text_input("👤 Reporter Name", placeholder="이름을 입력하세요")
         cat = st.selectbox("📂 Category", ["도로 파손", "시설물 고장", "쓰레기 투기", "기본 안전 위험"])
         desc = st.text_area("🗒️ Description", placeholder="현장 상황을 전문가처럼 상세히 기술해주세요.")
-        
-        # Use session state for address, allowing manual editing
-        addr = st.text_input("📍 Location Address", value=st.session_state.e_addr if st.session_state.e_addr else "")
         st.markdown('</div>', unsafe_allow_html=True)
         
         btn = st.form_submit_button("🛡️ SUBMIT SAFE REPORT")
@@ -408,7 +408,7 @@ elif menu == "🚀 사고 제보 (Report)":
                 st.error("👤 제보자 이름을 입력해주세요.")
             elif not photo:
                 st.error("🖼️ 현장 사진을 업로드해주세요.")
-            elif not addr:
+            elif not st.session_state.e_addr:
                 st.error("📍 위치 주소를 확인해주세요.")
             else:
                 try:
@@ -424,7 +424,7 @@ elif menu == "🚀 사고 제보 (Report)":
                     b_desc = str(desc)
                     b_lat = float(st.session_state.e_lat if st.session_state.e_lat is not None else 37.5665)
                     b_lon = float(st.session_state.e_lon if st.session_state.e_lon is not None else 126.9780)
-                    b_addr = str(addr)
+                    b_addr = str(st.session_state.e_addr)
                     b_val = int(ai['val'])
                     b_urb = str(ai['urb'])
                     
