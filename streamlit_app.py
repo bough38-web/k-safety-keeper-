@@ -166,12 +166,42 @@ st.markdown(f"""
         top: 0; left: 0; right: 0;
         background: {current_theme['nav_bg']};
         backdrop-filter: blur(15px);
-        padding: 0.8rem 2.5rem;
+        -webkit-backdrop-filter: blur(15px);
+        padding: 0.8rem 1.5rem;
         z-index: 1000;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid var(--border);
+    }}
+
+    /* Top 10 Tech #8: Adaptive Responsive UI (Media Queries) */
+    @media (max-width: 768px) {{
+        .hero-container {{
+            padding: 6rem 1rem 3rem 1rem;
+            border-radius: 0 0 40px 40px;
+            margin-bottom: 2rem;
+        }}
+        .expert-h1 {{
+            font-size: 2.2rem;
+            letter-spacing: -1px;
+        }}
+        .expert-p {{
+            font-size: 1rem;
+            padding: 0 10px;
+        }}
+        .expert-card {{
+            padding: 1.2rem;
+            border-radius: 20px;
+        }}
+        .expert-nav {{
+            padding: 0.6rem 1rem;
+        }}
+        .expert-nav div:first-child {{
+            font-size: 1.1rem !important;
+        }}
+        /* Hide complex elements on small mobile if necessary */
+        .status-dot-text {{ display: none; }}
     }}
     
     .status-dot {{
@@ -191,7 +221,7 @@ def expert_header():
         <div class="expert-nav">
             <div style="font-weight: 900; font-size: 1.4rem; color: white;">🛡️ K-SAFETY KEEPER</div>
             <div style="display: flex; align-items: center; color: white; font-size: 0.85rem; font-weight: 600;">
-                <span class="status-dot"></span> SYSTEM LIVE | v2.5.0 Expert
+                <span class="status-dot"></span> <span class="status-dot-text">SYSTEM LIVE | v2.5.0 Expert</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
