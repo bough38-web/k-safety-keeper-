@@ -222,7 +222,7 @@ def expert_header():
         <div class="expert-nav">
             <div style="font-weight: 900; font-size: 1.4rem; color: white;">🛡️ K-SAFETY KEEPER</div>
             <div style="display: flex; align-items: center; color: white; font-size: 0.85rem; font-weight: 600;">
-                <span class="status-dot"></span> <span class="status-dot-text">SYSTEM LIVE | v3.2 Resilience Expert</span>
+                <span class="status-dot"></span> <span class="status-dot-text">SYSTEM LIVE | v3.3 Geocoding Turbo</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -268,16 +268,15 @@ def get_lat_lon(exif_data):
     except Exception as e:
         return None, None
 
-def get_address_from_coords(lat, lon, zoom=18):
-    """[v3.1 Expert] Multi-Zoom Fallback Geocoding Engine"""
+def get_address_from_coords(lat, lon, zoom=18, retry=0):
+    """[v3.3 Turbo] Zero-Fail Geocoding with Jitter Retry"""
     if not lat or not lon or (abs(lat) < 0.1 and abs(lon) < 0.1):
         return ""
     
-    # User-Agent Rotation (Expert Technique #2)
     expert_ua = [
-        f"K-Safety-Keeper-v3.1-Alpha-{uuid.uuid4().hex[:5]}",
-        f"Safety-Precision-Engine-v3.1-{uuid.uuid4().hex[:5]}",
-        f"National-Safety-Service-Expert-{uuid.uuid4().hex[:5]}"
+        f"K-Safety-Keeper-v3.3-Turbo-{uuid.uuid4().hex[:5]}",
+        f"Safety-Precision-Turbo-v3.3-{uuid.uuid4().hex[:5]}",
+        f"National-Safety-Service-Expert-v3.3-{uuid.uuid4().hex[:5]}"
     ]
     
     try:
@@ -288,21 +287,25 @@ def get_address_from_coords(lat, lon, zoom=18):
         params = {
             "lat": lat, "lon": lon, "format": "jsonv2", "zoom": zoom, "addressdetails": 1
         }
-        resp = requests.get("https://nominatim.openstreetmap.org/reverse", params=params, headers=headers, timeout=10)
+        # Exponential backoff with jitter if retrying
+        if retry > 0:
+            time.sleep(retry * 0.5 + random.random())
+            
+        resp = requests.get("https://nominatim.openstreetmap.org/reverse", params=params, headers=headers, timeout=12)
         resp.raise_for_status()
         data = resp.json()
         
         addr = data.get("address", {})
         parts = []
         
-        # Expert String Builder (v3.1)
-        # 1. State/City
-        city = addr.get("city") or addr.get("province") or addr.get("city_district")
+        # Expert String Builder (v3.3)
+        # city/state/province
+        city = addr.get("city") or addr.get("province") or addr.get("city_district") or addr.get("state")
         if city: parts.append(city)
-        # 2. Suburb/Neighborhood (동/면/읍)
-        suburb = addr.get("suburb") or addr.get("neighbourhood") or addr.get("town") or addr.get("village")
+        # district/suburb
+        suburb = addr.get("suburb") or addr.get("neighbourhood") or addr.get("town") or addr.get("village") or addr.get("borough")
         if suburb: parts.append(suburb)
-        # 3. Road / House
+        # road/house
         road = addr.get("road")
         house = addr.get("house_number") or addr.get("building")
         if road: parts.append(road)
@@ -312,16 +315,17 @@ def get_address_from_coords(lat, lon, zoom=18):
             suffix = f" (AI 보정 Z{zoom})"
             return " ".join(parts) + suffix
             
-        # [Expert Tech #1] Recursive Fallback if not enough detail found
+        # [Expert Tech #1] Zoom Fallback
         if zoom > 14:
-            return get_address_from_coords(lat, lon, zoom=zoom-2)
+            return get_address_from_coords(lat, lon, zoom=zoom-2, retry=0)
             
         return data.get("display_name", "").split(",")[0].strip() or f"정밀 좌표: {lat:.6f}, {lon:.6f}"
         
     except Exception as e:
+        if retry < 2:
+            return get_address_from_coords(lat, lon, zoom=zoom, retry=retry+1)
         if zoom > 14:
-            time.sleep(0.5) # Short delay before retry
-            return get_address_from_coords(lat, lon, zoom=zoom-2)
+            return get_address_from_coords(lat, lon, zoom=zoom-2, retry=0)
         return f"정밀 좌표: {lat:.6f}, {lon:.6f}"
 
 # --- APP FLOW ---
@@ -441,7 +445,7 @@ elif menu == "🚀 사고 제보 (Report)":
 
     # --- [Expert Technique v3.2] Mobile Resilience Dashboard ---
     st.markdown('<div class="expert-card" style="border-top: 5px solid #3b82f6;">', unsafe_allow_html=True)
-    st.markdown("### 🛰️ ULTIMATE GEOLOCATION ENGINE v3.2")
+    st.markdown("### 🛰️ ULTIMATE GEOLOCATION ENGINE v3.3")
     
     with st.expander("🔍 전문 분석 진단 콘솔 (Diagnostic Console)", expanded=True):
         if not st.session_state.diag_logs:
@@ -459,11 +463,12 @@ elif menu == "🚀 사고 제보 (Report)":
             exif = get_exif_data(img)
             lat, lon = get_lat_lon(exif)
             if lat and lon:
-                if st.session_state.e_lat != lat or st.session_state.e_lon != lon:
+                # [v3.3] Aggressive detection: rerun if address is still empty
+                if st.session_state.e_lat != lat or st.session_state.e_lon != lon or not st.session_state.e_addr:
                     st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                    add_diag(f"사진 GPS 추출 성공: {lat:.6f}, {lon:.6f}")
+                    add_diag(f"사진 GPS 추출: {lat:.6f}, {lon:.6f}")
                     st.session_state.e_addr = get_address_from_coords(lat, lon)
-                    add_diag(f"주소 변환 결과: {st.session_state.e_addr}")
+                    add_diag(f"주소 변환완료: {st.session_state.e_addr}")
                     st.rerun()
             else:
                 if not st.session_state.get('warned_exif'):
@@ -508,11 +513,18 @@ elif menu == "🚀 사고 제보 (Report)":
     if st.session_state.e_lat:
         st.markdown(f"""
             <div style="background: #1e293b; color: #38bdf8; padding: 15px; border-radius: 10px; border-left: 5px solid #38bdf8; margin-bottom: 20px;">
-                <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">CURRENT SIGNAL LOCK (v3.2)</h4>
+                <h4 style="margin: 0; font-size: 0.9rem; opacity: 0.8;">CURRENT SIGNAL LOCK (v3.3 Turbo)</h4>
                 <div style="font-size: 1.2rem; font-weight: 800; font-family: monospace;">LAT: {st.session_state.e_lat:.6f} | LON: {st.session_state.e_lon:.6f}</div>
-                <div style="margin-top: 5px; font-size: 1.1rem; color: #f8fafc; font-weight: 700;">📍 {st.session_state.e_addr or '주소 수집 중...'}</div>
+                <div style="margin-top: 5px; font-size: 1.1rem; color: #f8fafc; font-weight: 700;">📍 {st.session_state.e_addr or '주소 분석 중...'}</div>
             </div>
         """, unsafe_allow_html=True)
+        
+        # [v3.3] Force Apply Connector
+        if st.session_state.e_addr and st.session_state.e_addr != st.session_state.get('e_addr_buffer'):
+            if st.button("✅ 위 주소를 제보창에 즉시 적용", use_container_width=True):
+                st.session_state.e_addr_buffer = st.session_state.e_addr
+                st.success("주소가 성공적으로 적용되었습니다!")
+                st.rerun()
 
     # [Expert Tech #5] Buffered Address Input (Manual Correction)
     # Using a local variable for the widget to avoid session state modification conflicts
