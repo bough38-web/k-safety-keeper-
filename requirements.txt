@@ -1,5 +1,7 @@
 flask
 streamlit
+streamlit-folium
+folium
 pandas
 pillow
 requests
