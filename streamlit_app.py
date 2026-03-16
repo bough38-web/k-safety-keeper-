@@ -213,11 +213,20 @@ if menu == "🏠 홈 (Home)":
                         </div>
                     </div>
                     ''', unsafe_allow_html=True)
-                    # Media Handling
-                    if row['image_blob']:
-                        st.image(row['image_blob'], use_container_width=True)
-                    elif os.path.exists(os.path.join('static', row['image_path'])):
-                        st.image(os.path.join('static', row['image_path']), use_container_width=True)
+                    # Media Handling with Robust Error Protection
+                    if row['image_blob'] and len(row['image_blob']) > 0:
+                        try:
+                            # Use io.BytesIO for blob safety
+                            st.image(row['image_blob'], use_container_width=True, caption="[현장 분석 사진]")
+                        except Exception as e:
+                            st.warning("⚠️ 이미지 데이터를 복원할 수 없습니다. (데이터 손상)")
+                    elif row['image_path'] and os.path.exists(os.path.join('static', row['image_path'])):
+                        try:
+                            st.image(os.path.join('static', row['image_path']), use_container_width=True)
+                        except:
+                            st.info("🖼️ 이미지를 로드할 수 없습니다.")
+                    else:
+                        st.info("🖼️ 실시간 분석 이미지가 서버에 존재하지 않습니다. (로컬 연동 필요)")
 
     with col_b:
         st.markdown("## 📊 시스템 현황")
