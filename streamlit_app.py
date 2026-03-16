@@ -387,10 +387,11 @@ elif menu == "🚀 사고 제보 (Report)":
             ai = sim_analysis(cat)
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             c = conn.cursor()
+            # Clean INSERT with exact columns matching values
             c.execute("""INSERT INTO reports 
                 (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) 
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (name, cat, desc, "m_up.jpg", st.session_state.e_lat, st.session_state.e_lon, addr, "Verified", ai['val']*10, now, now, ai['val'], ai['urb'], img_data))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (name, cat, desc, "m_up.jpg", float(st.session_state.e_lat), float(st.session_state.e_lon), addr, "Verified", int(ai['val']*10), now, now, int(ai['val']), str(ai['urb']), img_data))
             conn.commit()
             st.success("최종 제보가 서버에 안전하게 업로드되었습니다.")
             st.balloons()
