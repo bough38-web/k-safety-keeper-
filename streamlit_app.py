@@ -369,21 +369,28 @@ elif menu == "🚀 사고 제보 (Report)":
     photo = st.file_uploader("🖼️ Evidence Photo (Auto-Location Support)", type=['jpg', 'jpeg', 'png'])
     if photo:
         try:
-            photo.seek(0)
-            img = Image.open(photo)
-            exif = get_exif_data(img)
-            lat, lon = get_lat_lon(exif)
-            if lat and lon:
-                if lat != st.session_state.e_lat or lon != st.session_state.e_lon:
-                    st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                    st.session_state.e_addr = get_address_from_coords(lat, lon)
-                    st.rerun()
-            photo.seek(0)
-        except: pass
+            with st.status("🔍 사진 분석 중...", expanded=False) as status:
+                photo.seek(0)
+                img = Image.open(photo)
+                exif = get_exif_data(img)
+                lat, lon = get_lat_lon(exif)
+                if lat and lon:
+                    if lat != st.session_state.e_lat or lon != st.session_state.e_lon:
+                        st.session_state.e_lat, st.session_state.e_lon = lat, lon
+                        st.session_state.e_addr = get_address_from_coords(lat, lon)
+                        status.update(label=f"✅ 위치 추출 완료: {st.session_state.e_addr}", state="complete", expanded=False)
+                        st.rerun()
+                    else:
+                        status.update(label="✅ 이미 분석된 위치입니다.", state="complete", expanded=False)
+                else:
+                    status.update(label="⚠️ 사진에 GPS 정보가 없습니다.", state="error", expanded=False)
+                photo.seek(0)
+        except Exception as e:
+            st.error(f"❌ 분석 오류: {str(e)}")
 
     st.markdown("---")
     st.write("📡 **Precision Geolocation**")
-    if st.checkbox("🛰️ 위성 좌표 수신 허용 (Real-Time GPS)"):
+    if st.checkbox("🛰️ 위성 좌표 수신 허용 (Real-Time GPS)", key="gps_checkbox"):
         loc = streamlit_js_eval(data_of='get_location', key='gps_expert')
         if loc:
             new_lat = loc['coords']['latitude']
@@ -391,11 +398,12 @@ elif menu == "🚀 사고 제보 (Report)":
             if new_lat != st.session_state.e_lat or new_lon != st.session_state.e_lon:
                 st.session_state.e_lat = new_lat
                 st.session_state.e_lon = new_lon
-                st.session_state.e_addr = get_address_from_coords(new_lat, new_lon)
+                with st.spinner("📍 현재 위치 주소 변환 중..."):
+                    st.session_state.e_addr = get_address_from_coords(new_lat, new_lon)
                 st.rerun()
     
-    # Move address input here for immediate reflection
-    st.session_state.e_addr = st.text_input("📍 분석된 위치 (주소 직접 수정 가능)", value=st.session_state.e_addr)
+    # Move address input here for immediate reflection - Using key for robust state binding
+    st.text_input("📍 분석된 위치 (주소 직접 수정 가능)", key="e_addr")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- Submission Form ---
