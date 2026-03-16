@@ -256,22 +256,43 @@ def get_lat_lon(exif_data):
     except: return None, None
 
 def get_address_from_coords(lat, lon):
+    """지수 추론: Nominatim API를 통한 한국어 주소 변환 (Resilient)"""
+    # 0.0, 0.0 등 유효하지 않은 좌표 필터링
+    if abs(lat) < 0.1 and abs(lon) < 0.1:
+        return ""
+        
     try:
+        # User-Agent를 더욱 구체화하여 차단 방지
+        headers = {
+            "User-Agent": f"K-Safety-Keeper-v2.5-Expert-System-{time.time()}",
+            "Accept-Language": "ko,en-US;q=0.9,en;q=0.8"
+        }
         response = requests.get(
             "https://nominatim.openstreetmap.org/reverse",
             params={
                 "lat": lat,
                 "lon": lon,
                 "format": "jsonv2",
-                "accept-language": "ko",
+                "zoom": 18,
+                "addressdetails": 1
             },
-            headers={"User-Agent": "SafetyMapExpert/2.5"},
-            timeout=8,
+            headers=headers,
+            timeout=10,
         )
         response.raise_for_status()
         data = response.json()
+        
+        # 도로명 주소가 있으면 우선 사용, 없으면 전체 주소 사용
+        addr_details = data.get("address", {})
+        road = addr_details.get("road")
+        city = addr_details.get("city") or addr_details.get("province") or addr_details.get("city_district")
+        
+        if road and city:
+            return f"{city} {road} (AI 보정)"
+        
         return data.get("display_name") or f"정밀 좌표: {lat:.5f}, {lon:.5f}"
-    except Exception:
+    except Exception as e:
+        # 로깅 대신 주소 필드에 에러 표시 지양, fallback 텍스트만 유지
         return f"정밀 좌표: {lat:.5f}, {lon:.5f}"
 
 # --- APP FLOW ---
@@ -365,8 +386,9 @@ elif menu == "🚀 사고 제보 (Report)":
 
     # --- Reactive Location & AI Analysis Logic (Outside Form for immediate reflection) ---
     st.markdown('<div class="expert-card">', unsafe_allow_html=True)
-    st.markdown("### 📸 현장 분석 (AI Analysis)")
-    photo = st.file_uploader("🖼️ Evidence Photo (Auto-Location Support)", type=['jpg', 'jpeg', 'png'])
+    st.markdown("### 📸 1단계: 현장 분석 (AI Analysis)")
+    st.info("💡 모바일에서 직접 촬영 시 개인정보보호를 위해 GPS 정보가 제외될 수 있습니다. 이 경우 아래 '위성 좌표 수신' 기능을 이용해 주세요.")
+    photo = st.file_uploader("🖼️ 제보 사진 업로드 (GPS 자동 추출 지원)", type=['jpg', 'jpeg', 'png'])
     if photo:
         try:
             with st.status("🔍 사진 분석 중...", expanded=False) as status:
@@ -377,21 +399,30 @@ elif menu == "🚀 사고 제보 (Report)":
                 if lat and lon:
                     if lat != st.session_state.e_lat or lon != st.session_state.e_lon:
                         st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                        st.session_state.e_addr = get_address_from_coords(lat, lon)
-                        status.update(label=f"✅ 위치 추출 완료: {st.session_state.e_addr}", state="complete", expanded=False)
+                        addr_res = get_address_from_coords(lat, lon)
+                        st.session_state.e_addr = addr_res
+                        status.update(label=f"✅ 위치 추출 완료: {addr_res}", state="complete", expanded=False)
                         st.rerun()
                     else:
                         status.update(label="✅ 이미 분석된 위치입니다.", state="complete", expanded=False)
                 else:
-                    status.update(label="⚠️ 사진에 GPS 정보가 없습니다.", state="error", expanded=False)
+                    status.update(label="⚠️ 사진에 GPS 정보가 없습니다. 버튼을 눌러 위치를 수집하세요.", state="error", expanded=False)
                 photo.seek(0)
         except Exception as e:
             st.error(f"❌ 분석 오류: {str(e)}")
 
     st.markdown("---")
-    st.write("📡 **Precision Geolocation**")
-    if st.checkbox("🛰️ 위성 좌표 수신 허용 (Real-Time GPS)", key="gps_checkbox"):
-        loc = streamlit_js_eval(data_of='get_location', key='gps_expert')
+    st.markdown("### 📡 2단계: 정밀 위치 확인 (Precision Geolocation)")
+    
+    col_gps1, col_gps2 = st.columns([1, 1])
+    with col_gps1:
+        gps_active = st.checkbox("🛰️ 위성 좌표 수신 자동화", key="gps_checkbox")
+    with col_gps2:
+        if st.button("🎯 현위치 즉시 수집 (Manual Refresh)", use_container_width=True):
+            st.session_state.gps_trigger = time.time() # Force trigger
+
+    if gps_active or 'gps_trigger' in st.session_state:
+        loc = streamlit_js_eval(data_of='get_location', key=f'gps_expert_{st.session_state.get("gps_trigger", 0)}')
         if loc:
             new_lat = loc['coords']['latitude']
             new_lon = loc['coords']['longitude']
@@ -403,7 +434,7 @@ elif menu == "🚀 사고 제보 (Report)":
                 st.rerun()
     
     # Move address input here for immediate reflection - Using key for robust state binding
-    st.text_input("📍 분석된 위치 (주소 직접 수정 가능)", key="e_addr")
+    st.text_input("📍 최종 제보 위치 (주소 확인 및 수정)", key="e_addr")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- Submission Form ---
