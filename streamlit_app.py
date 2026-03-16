@@ -378,10 +378,17 @@ elif menu == "📍 전술 지도 (Map)":
 elif menu == "🚀 사고 제보 (Report)":
     st.markdown("<h2 style='margin-top: 60px;'>🛡️ INCIDENT SUBMISSION</h2>", unsafe_allow_html=True)
     
-    # Session States for Automation (Top 10 Tech #7)
+    # --- [Expert Tech #2 Refined] Atomic State & Reset Protocol ---
     if 'e_lat' not in st.session_state: st.session_state.e_lat = None
     if 'e_lon' not in st.session_state: st.session_state.e_lon = None
     if 'e_addr' not in st.session_state: st.session_state.e_addr = ""
+    
+    # Internal Reset Flag to avoid "modification after instantiation" errors
+    if st.session_state.get('clear_location_now'):
+        st.session_state.e_lat = None
+        st.session_state.e_lon = None
+        st.session_state.e_addr = ""
+        st.session_state.clear_location_now = False
 
     # --- [Expert Tech #3] Location Status Dashboard UI ---
     st.markdown('<div class="expert-card" style="border-top: 4px solid var(--primary);">', unsafe_allow_html=True)
@@ -412,22 +419,31 @@ elif menu == "🚀 사고 제보 (Report)":
 
     with col_anal2:
         st.markdown("#### 📡 2단계: 위성 실시간 동기화")
-        st.info("💡 모바일 카메라 촬영 시에는 아래 버튼을 눌러 위치를 매칭해주세요.")
-        if st.button("🏹 현위치 위성 수신 (Force Sync)", use_container_width=True):
-            st.session_state.gps_trigger = time.time()
-            # Explicit location request
-            loc = streamlit_js_eval(data_of='get_location', key=f'gps_expert_{st.session_state.gps_trigger}')
-            if loc:
-                n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
-                st.session_state.e_lat, st.session_state.e_lon = n_lat, n_lon
-                with st.spinner("📍 위치 주소 변환 중..."):
-                    st.session_state.e_addr = get_address_from_coords(n_lat, n_lon)
-                st.success("✅ 위성 수신 완료")
-                st.rerun()
+        st.info("💡 모바일 브라우저 보안 정책상 위성 수신 버튼을 직접 눌러야 좌표가 매칭됩니다.")
+        
+        # Expert Trigger Logic
+        sync_click = st.button("🏹 현위치 위성 수집 (Force Sync)", use_container_width=True, key="force_sync_btn")
+        if sync_click:
+            st.session_state.gps_requested = True
+            
+        if st.session_state.get('gps_requested'):
+            with st.spinner("🛰️ 위성 신호 대기 및 주소 변환 중..."):
+                loc = streamlit_js_eval(data_of='get_location', key=f'gps_expert_final')
+                if loc:
+                    n_lat, n_lon = loc['coords']['latitude'], loc['coords']['longitude']
+                    if n_lat != st.session_state.e_lat or n_lon != st.session_state.e_lon:
+                        st.session_state.e_lat, st.session_state.e_lon = n_lat, n_lon
+                        st.session_state.e_addr = get_address_from_coords(n_lat, n_lon)
+                        st.session_state.gps_requested = False
+                        st.success(f"✅ 위성 수신 성공: {st.session_state.e_addr}")
+                        st.rerun()
+                elif sync_click:
+                    # Only show warning if the button was just pressed and no location came back immediately
+                    st.toast("📡 위치 신호를 확인하고 있습니다. 잠시만 기다려주세요...")
 
     st.markdown("---")
-    # [Expert Tech #5] Unified Reactive Input
-    st.text_input("📍 최종 분석된 위치 주소 (편집 가능)", key="e_addr")
+    # [Expert Tech #5] Robust Manual Overwrite - Avoiding strict Key binding error
+    st.session_state.e_addr = st.text_input("📍 최종 분석된 위치 주소 (직접 입력 가능)", value=st.session_state.e_addr)
     
     # [Expert Tech #7] Visual Verification Badge
     if st.session_state.e_lat and st.session_state.e_lon:
@@ -480,10 +496,8 @@ elif menu == "🚀 사고 제보 (Report)":
                     conn.commit()
                     st.success("✅ 제보가 안전하게 접수되었습니다. (Expert System Logged)")
                     st.balloons()
-                    # Clear state after success
-                    st.session_state.e_lat = None
-                    st.session_state.e_lon = None
-                    st.session_state.e_addr = ""
+                    # Set reset flag for next run to avoid "After Instantiation" error
+                    st.session_state.clear_location_now = True
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ 데이터 정합성 오류: {str(e)}")
