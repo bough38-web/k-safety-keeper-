@@ -83,9 +83,13 @@ if menu == "실시간 안전 지도":
                 # In Streamlit Cloud, pathing needs to be relative to the app root
                 img_path = os.path.join('static', row['image_path'])
                 if os.path.exists(img_path):
-                    st.image(img_path)
+                    try:
+                        st.image(img_path, use_container_width=True)
+                    except Exception as e:
+                        st.warning("⚠️ 이미지를 분석할 수 없습니다. (손상된 파일 또는 지원하지 않는 형식)")
                 else:
-                    st.write("이미지를 불러올 수 없습니다.")
+                    # Show a placeholder icon if file is missing (common in ephemeral cloud storage)
+                    st.info("🖼️ 원본 이미지가 서버에 존재하지 않습니다. (로컬 데이터 연동 문제)")
             with col2:
                 st.write(f"**제보자:** {row['reporter_name']}")
                 st.write(f"**내용:** {row['description']}")
