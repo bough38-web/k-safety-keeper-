@@ -383,18 +383,33 @@ elif menu == "🚀 사고 제보 (Report)":
         
         btn = st.form_submit_button("🛡️ SUBMIT SAFE REPORT")
         if btn and name and photo:
-            img_data = photo.read()
-            ai = sim_analysis(cat)
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            c = conn.cursor()
-            # Clean INSERT with exact columns matching values
-            c.execute("""INSERT INTO reports 
-                (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (name, cat, desc, "m_up.jpg", float(st.session_state.e_lat), float(st.session_state.e_lon), addr, "Verified", int(ai['val']*10), now, now, int(ai['val']), str(ai['urb']), img_data))
-            conn.commit()
-            st.success("최종 제보가 서버에 안전하게 업로드되었습니다.")
-            st.balloons()
+            try:
+                # Top 10 Tech #10: Data Integrity Polish
+                photo.seek(0)
+                img_data = photo.read()
+                ai = sim_analysis(cat)
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Explicitly cast to ensure SQLite compatibility
+                b_name = str(name)
+                b_cat = str(cat)
+                b_desc = str(desc)
+                b_lat = float(st.session_state.e_lat)
+                b_lon = float(st.session_state.e_lon)
+                b_addr = str(addr)
+                b_val = int(ai['val'])
+                b_urb = str(ai['urb'])
+                
+                c = conn.cursor()
+                c.execute("""INSERT INTO reports 
+                    (reporter_name, category, description, image_path, latitude, longitude, address, status, reward_points, created_at, updated_at, public_value, urgency, image_blob) 
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (b_name, b_cat, b_desc, "m_up.jpg", b_lat, b_lon, b_addr, "Verified", b_val*10, now, now, b_val, b_urb, sqlite3.Binary(img_data)))
+                conn.commit()
+                st.success("✅ 제보가 안전하게 접수되었습니다. (Expert System Logged)")
+                st.balloons()
+            except Exception as e:
+                st.error(f"❌ 데이터 정합성 오류: {str(e)}")
 
 elif menu == "⚙️ 통합 관제 (Admin)":
     st.markdown("<h2 style='margin-top: 60px;'>⚙️ COMMAND CENTER</h2>", unsafe_allow_html=True)
