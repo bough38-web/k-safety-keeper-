@@ -256,9 +256,23 @@ def get_lat_lon(exif_data):
     except: return None, None
 
 def get_address_from_coords(lat, lon):
-    if 37.56 <= lat <= 37.58 and 126.97 <= lon <= 126.99: return "서울특별시 종로구 세종대로 209 (정밀 감지)"
-    if 37.50 <= lat <= 37.54 and 126.70 <= lon <= 126.76: return "인천광역시 부평구 삼산동 494 (부평삼산지구엠코타운)"
-    return f"정밀 좌표: {lat:.5f}, {lon:.5f}"
+    try:
+        response = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={
+                "lat": lat,
+                "lon": lon,
+                "format": "jsonv2",
+                "accept-language": "ko",
+            },
+            headers={"User-Agent": "SafetyMapExpert/2.5"},
+            timeout=8,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("display_name") or f"정밀 좌표: {lat:.5f}, {lon:.5f}"
+    except Exception:
+        return f"정밀 좌표: {lat:.5f}, {lon:.5f}"
 
 # --- APP FLOW ---
 expert_header()
@@ -345,10 +359,9 @@ elif menu == "🚀 사고 제보 (Report)":
     st.markdown("<h2 style='margin-top: 60px;'>🛡️ INCIDENT SUBMISSION</h2>", unsafe_allow_html=True)
     
     # Session States for Automation (Top 10 Tech #7)
-    if 'e_lat' not in st.session_state: st.session_state.e_lat = 37.5665
-    if 'e_lon' not in st.session_state: st.session_state.e_lon = 126.9780
-    if 'e_addr' not in st.session_state: 
-        st.session_state.e_addr = get_address_from_coords(st.session_state.e_lat, st.session_state.e_lon)
+    if 'e_lat' not in st.session_state: st.session_state.e_lat = None
+    if 'e_lon' not in st.session_state: st.session_state.e_lon = None
+    if 'e_addr' not in st.session_state: st.session_state.e_addr = ""
 
     with st.form("report_form_expert"):
         st.markdown('<div class="expert-card">', unsafe_allow_html=True)

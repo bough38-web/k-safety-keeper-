@@ -315,24 +315,19 @@ def report_detail(report_id: int):
 
 
 @app.route("/api/reverse-geocode")
-def reverse_geocode():
+def api_reverse_geocode():
     lat = request.args.get("lat")
     lng = request.args.get("lng")
-    # Simulated mapping of coordinates to Korean addresses
-    # In a real app, use Kakao/Naver/Google Maps API
     if not lat or not lng:
         return {"address": "위치를 가져올 수 없습니다."}
     
-    # Just a fun simulation
-    precomputed = [
-        "서울특별시 중구 세종대로 110 (태평로1가)",
-        "서울특별시 용산구 한강대로 405 (봉래동2가)",
-        "서울특별시 성동구 왕십리로 222 (사근동)",
-        "경기도 성남시 분당구 불정로 6 (정자동)",
-        "부산광역시 해운대구 달맞이길 62번길 69"
-    ]
-    import random
-    return {"address": random.choice(precomputed)}
+    try:
+        latitude = float(lat)
+        longitude = float(lng)
+        address = reverse_geocode(latitude, longitude)
+        return {"address": address}
+    except (ValueError, TypeError):
+        return {"address": "잘못된 좌표 형식입니다."}
 
 
 @app.route("/admin", methods=["GET", "POST"])
