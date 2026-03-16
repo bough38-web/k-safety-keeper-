@@ -14,128 +14,157 @@ st.set_page_config(
     page_title="K-국민안전지킴이 (K-National Safety Keeper)",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# --- Premium Global CSS (Replicating style.css) ---
-st.markdown("""
+# --- Theme Configuration ---
+THEMES = {
+    "Bright Crystal (White)": {
+        "bg_color": "#ffffff",
+        "bg_app": "#f8fafc",
+        "text": "#1e293b",
+        "card_bg": "rgba(255, 255, 255, 0.9)",
+        "glass_border": "rgba(0, 0, 0, 0.05)",
+        "primary": "#135bec",
+        "hero_grad": "linear-gradient(135deg, #135bec 0%, #4c84ff 100%)",
+        "kpi_val": "#135bec",
+        "nav_bg": "rgba(19, 91, 236, 0.95)",
+        "sidebar_bg": "#f1f5f9",
+        "map_tiles": "CartoDB positron"
+    },
+    "Solar Morning (Warm)": {
+        "bg_color": "#fefce8",
+        "bg_app": "#fefce8",
+        "text": "#422006",
+        "card_bg": "rgba(255, 255, 255, 0.95)",
+        "glass_border": "rgba(0, 0, 0, 0.05)",
+        "primary": "#ca8a04",
+        "hero_grad": "linear-gradient(135deg, #fbbf24 0%, #ca8a04 100%)",
+        "kpi_val": "#ca8a04",
+        "nav_bg": "rgba(202, 138, 4, 0.95)",
+        "sidebar_bg": "#fef9c3",
+        "map_tiles": "CartoDB positron"
+    },
+    "Royal Midnight (Dark)": {
+        "bg_color": "#0f172a",
+        "bg_app": "#0f172a",
+        "text": "#f1f5f9",
+        "card_bg": "rgba(30, 41, 59, 0.7)",
+        "glass_border": "rgba(255, 255, 255, 0.1)",
+        "primary": "#3b82f6",
+        "hero_grad": "linear-gradient(135deg, #135bec 0%, #00d2ff 100%)",
+        "kpi_val": "#ffffff",
+        "nav_bg": "rgba(19, 91, 236, 0.9)",
+        "sidebar_bg": "#0f172a",
+        "map_tiles": "CartoDB dark_matter"
+    }
+}
+
+# --- Sidebar UI (Theme Selector) ---
+with st.sidebar:
+    st.markdown("### 🎨 THEME SETTING")
+    theme_name = st.selectbox("밝기/테마 선택", list(THEMES.keys()), index=0)
+    current_theme = THEMES[theme_name]
+    st.markdown("---")
+    st.markdown("### 🧭 NAVIGATION")
+    menu = st.radio("Menu", ["🏠 홈 (Home)", "📍 안전 지도 (Map)", "🚀 제보하기 (Report)", "⚙️ 관리자 (Admin)"])
+
+# --- Dynamic CSS Injection ---
+st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
-    :root {
-        --primary: #135bec;
-        --secondary: #00d2ff;
-        --accent: #ff9800;
-        --bg-dark: #0f172a;
-        --text-dark: #f1f5f9;
+    :root {{
+        --primary: {current_theme['primary']};
+        --text: {current_theme['text']};
         --radius-lg: 24px;
-        --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-    }
+        --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }}
 
-    .stApp {
-        background-color: var(--bg-dark);
+    .stApp {{
+        background-color: {current_theme['bg_app']};
         font-family: 'Inter', sans-serif;
-    }
+        color: {current_theme['text']};
+    }}
 
-    /* Hide Sidebar & Standard Nav */
-    [data-testid="stSidebarNav"] {display: none;}
-    
-    /* Premium Header */
-    .custom-header {
+    /* Custom Header */
+    .custom-header {{
         position: fixed;
         top: 0; left: 0; right: 0;
-        background: rgba(19, 91, 236, 0.9);
+        background: {current_theme['nav_bg']};
         backdrop-filter: blur(12px);
         padding: 0.8rem 2rem;
         z-index: 999;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid {current_theme['glass_border']};
         color: white;
-    }
-
-    .nav-links a {
-        color: white;
-        text-decoration: none;
-        margin-left: 1.5rem;
-        font-weight: 600;
-        font-size: 0.95rem;
-        opacity: 0.8;
-        transition: opacity 0.3s;
-    }
-    .nav-links a:hover { opacity: 1; }
+    }}
 
     /* Hero Section */
-    .hero-box {
-        background: linear-gradient(135deg, #135bec 0%, #00d2ff 100%);
+    .hero-box {{
+        background: {current_theme['hero_grad']};
         padding: 6rem 2rem 4rem 2rem;
         text-align: center;
         border-radius: 0 0 50px 50px;
         margin-bottom: 3rem;
         box-shadow: var(--shadow-premium);
         color: white;
-    }
+    }}
 
-    /* Glass Cards */
-    .glass-card {
-        background: rgba(30, 41, 59, 0.7);
+    /* Cards */
+    .glass-card {{
+        background: {current_theme['card_bg']};
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid {current_theme['glass_border']};
         border-radius: var(--radius-lg);
         padding: 1.5rem;
         margin-bottom: 1.5rem;
-        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .glass-card:hover { transform: translateY(-5px); }
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        color: {current_theme['text']};
+    }}
 
-    .kpi-card {
+    .kpi-card {{
         text-align: center;
         border-bottom: 4px solid var(--primary);
-    }
-    .kpi-val {
+    }}
+    .kpi-val {{
         font-size: 2.8rem;
         font-weight: 900;
-        color: #ffffff;
+        color: {current_theme['kpi_val']};
         margin: 0;
-    }
-    .kpi-lab {
+    }}
+    .kpi-lab {{
         font-size: 0.85rem;
         opacity: 0.7;
         font-weight: 600;
-        letter-spacing: 1px;
-    }
+        color: {current_theme['text']};
+    }}
 
-    /* Report Grid */
-    .report-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    /* Photo Handling */
-    .card-img {
-        width: 100%;
-        height: 200px;
-        object-fit: cover;
-        border-radius: 15px;
-        margin-bottom: 1rem;
-    }
-
-    .badge-status {
+    .badge-status {{
         padding: 4px 12px;
         border-radius: 50px;
         font-size: 0.75rem;
         font-weight: 800;
-        background: rgba(19, 91, 236, 0.2);
-        color: #60a5fa;
-        border: 1px solid rgba(96, 165, 250, 0.3);
-    }
+        background: rgba(19, 91, 236, 0.1);
+        color: var(--primary);
+        border: 1px solid var(--primary);
+    }}
 
-    /* Sidebar Overrides */
-    section[data-testid="stSidebar"] {
-        background-color: #0f172a !important;
-    }
+    section[data-testid="stSidebar"] {{
+        background-color: {current_theme['sidebar_bg']} !important;
+    }}
+    
+    /* Input Styling */
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea {{
+        background-color: white !important;
+        color: black !important;
+    }}
+    
+    h1, h2, h3, h4 {{
+        color: {current_theme['text']} !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -152,23 +181,9 @@ def sim_analysis(cat):
 st.markdown("""
     <div class="custom-header">
         <div style="font-weight: 800; font-size: 1.2rem;">🛡️ K-국민안전지킴이</div>
-        <div class="nav-links">
-            <a href="?page=home">홈</a>
-            <a href="?page=map">안전지도</a>
-            <a href="?page=report">제보하기</a>
-            <a href="?page=admin">관리자</a>
-        </div>
+        <div style="font-size: 0.8rem; font-weight: 600; opacity: 0.8;">Admin: 0303</div>
     </div>
     """, unsafe_allow_html=True)
-
-# Navigation via Query Params (Simulation)
-query_params = st.query_params
-page = query_params.get("page", "home")
-
-# Fallback Sidebar Menu for Ease of Use in Streamlit
-with st.sidebar:
-    st.markdown("### 🧭 NAVIGATION")
-    menu = st.radio("Menu", ["🏠 홈 (Home)", "📍 안전 지도 (Map)", "🚀 제보하기 (Report)", "⚙️ 관리자 (Admin)"])
 
 # Shared DB Connection
 conn = get_db()
@@ -178,15 +193,14 @@ if menu == "🏠 홈 (Home)":
     # Hero Section
     st.markdown("""
         <div class="hero-box">
-            <h1 style="font-size: 3.5rem; font-weight: 800; margin-bottom: 1rem;">K-국민안전지킴이</h1>
-            <p style="font-size: 1.4rem; opacity: 0.9; max-width: 800px; margin: 0 auto;">
+            <h1 style="font-size: 3.5rem; font-weight: 800; margin-bottom: 1rem; color: white !important;">K-국민안전지킴이</h1>
+            <p style="font-size: 1.4rem; opacity: 0.9; max-width: 800px; margin: 0 auto; color: white !important;">
                 수만 명의 시민과 함께 더 안전한 사회를 만듭니다.<br>사진 한 장이면 AI가 즉시 분석하여 대응합니다.
             </p>
         </div>
         """, unsafe_allow_html=True)
 
     # Dashboard/Feed
-    st.container()
     col_a, col_b = st.columns([2, 1])
     
     with col_a:
@@ -200,33 +214,23 @@ if menu == "🏠 홈 (Home)":
                 with st.container():
                     st.markdown(f'''
                     <div class="glass-card">
-                        <div style="display: flex; gap: 1.5rem;">
-                            <div style="flex: 1;">
-                                <div style="display: flex; justify-content: space-between; align-items: start;">
-                                    <span class="badge-status">{row['status']}</span>
-                                    <span style="font-weight: 800; color: #ff9800;">💰 {row['reward_points']} P</span>
-                                </div>
-                                <h3 style="margin: 10px 0;">{row['category']}</h3>
-                                <p style="opacity: 0.7; font-size: 0.9rem;">📍 {row['address'] or '위치 분석 중...'}</p>
-                                <p style="font-size: 0.8rem; opacity: 0.5;">{row['created_at']} | 제보자: {row['reporter_name']}</p>
-                            </div>
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <span class="badge-status">{row['status']}</span>
+                            <span style="font-weight: 800; color: #ff9800;">💰 {row['reward_points']} P</span>
                         </div>
+                        <h3 style="margin: 10px 0;">{row['category']}</h3>
+                        <p style="opacity: 0.7; font-size: 0.9rem;">📍 {row['address'] or '위치 분석 중...'}</p>
+                        <p style="font-size: 0.8rem; opacity: 0.5;">{row['created_at']} | 제보자: {row['reporter_name']}</p>
                     </div>
                     ''', unsafe_allow_html=True)
-                    # Media Handling with Robust Error Protection
+                    # Media Handling
                     if row['image_blob'] and len(row['image_blob']) > 0:
                         try:
-                            # Use io.BytesIO for blob safety
-                            st.image(row['image_blob'], use_container_width=True, caption="[현장 분석 사진]")
-                        except Exception as e:
-                            st.warning("⚠️ 이미지 데이터를 복원할 수 없습니다. (데이터 손상)")
-                    elif row['image_path'] and os.path.exists(os.path.join('static', row['image_path'])):
-                        try:
-                            st.image(os.path.join('static', row['image_path']), use_container_width=True)
+                            st.image(row['image_blob'], use_container_width=True, caption="[현장 사진]")
                         except:
-                            st.info("🖼️ 이미지를 로드할 수 없습니다.")
-                    else:
-                        st.info("🖼️ 실시간 분석 이미지가 서버에 존재하지 않습니다. (로컬 연동 필요)")
+                            st.warning("이미지 로드 실패")
+                    elif row['image_path'] and os.path.exists(os.path.join('static', row['image_path'])):
+                        st.image(os.path.join('static', row['image_path']), use_container_width=True)
 
     with col_b:
         st.markdown("## 📊 시스템 현황")
@@ -240,7 +244,7 @@ elif menu == "📍 안전 지도 (Map)":
     st.markdown("<h1 style='margin-top: 50px;'>🛰️ 실시간 안전 관제 지도</h1>", unsafe_allow_html=True)
     df = pd.read_sql_query("SELECT * FROM reports WHERE latitude IS NOT NULL", conn)
     
-    m = folium.Map(location=[37.5665, 126.9780], zoom_start=12, tiles="CartoDB dark_matter")
+    m = folium.Map(location=[37.5665, 126.9780], zoom_start=12, tiles=current_theme['map_tiles'])
     for _, row in df.iterrows():
         color = 'red' if '시급' in str(row['urgency']) or 'HIGH' in str(row['urgency']) else 'blue'
         folium.CircleMarker(
@@ -251,7 +255,7 @@ elif menu == "📍 안전 지도 (Map)":
 
 # --- REPORT PAGE ---
 elif menu == "🚀 제보하기 (Report)":
-    st.markdown("<h1 style='margin-top: 50px;'>📸 새로운 안전 제보</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-top: 50px;'>🚀 새로운 안전 제보</h1>", unsafe_allow_html=True)
     with st.form("report_form"):
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         name = st.text_input("👤 성함", placeholder="홍길동")
@@ -283,9 +287,9 @@ elif menu == "⚙️ 관리자 (Admin)":
         st.markdown("### 📊 전체 제보 데이터베이스")
         st.dataframe(df.drop(columns=['image_blob']), use_container_width=True)
         csv = df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 통합 리스트 CSV 다운로드", csv, "nsk_admin_export.csv", "text/csv")
+        st.download_button("📥 통합 리스트 CSV 추출", csv, "nsk_admin_export.csv", "text/csv")
     elif pwd:
         st.error("잘못된 비밀번호입니다.")
 
 st.markdown("---")
-st.markdown("<p style='text-align: center; opacity: 0.4;'>© 2026 K-National Safety Keeper | Advanced AI Monitoring</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align: center; opacity: 0.4;'>© 2026 K-National Safety Keeper | {theme_name} Theme Applied</p>", unsafe_allow_html=True)
