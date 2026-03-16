@@ -347,7 +347,8 @@ elif menu == "🚀 사고 제보 (Report)":
     # Session States for Automation (Top 10 Tech #7)
     if 'e_lat' not in st.session_state: st.session_state.e_lat = 37.5665
     if 'e_lon' not in st.session_state: st.session_state.e_lon = 126.9780
-    if 'e_addr' not in st.session_state: st.session_state.e_addr = ""
+    if 'e_addr' not in st.session_state: 
+        st.session_state.e_addr = get_address_from_coords(st.session_state.e_lat, st.session_state.e_lon)
 
     with st.form("report_form_expert"):
         st.markdown('<div class="expert-card">', unsafe_allow_html=True)
@@ -433,10 +434,14 @@ elif menu == "⚙️ 통합 관제 (Admin)":
         st.markdown("### 🤖 AI 스마트 주소 복구 (Intelligence Recovery)")
         st.info("💡 제보 시 자동 주소 등록에 실패한 사례를 찾아 30초 간격으로 최대 3회 재분석을 시도합니다.")
         
-        # Identify reports with coordinates but potentially missing/placeholder address
+        # Top 10 Tech #6 Enhanced: Robust placeholder detection
         reports_to_fix = df[
             (df['latitude'].notnull()) & 
-            (df['address'].str.contains('분석 중|좌표:', na=True))
+            (
+                (df['address'].isna()) | 
+                (df['address'].str.strip() == "") |
+                (df['address'].str.contains('분석 중|좌표:', na=False))
+            )
         ]
         
         if not reports_to_fix.empty:
