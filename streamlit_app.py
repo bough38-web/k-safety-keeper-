@@ -374,9 +374,10 @@ elif menu == "🚀 사고 제보 (Report)":
             exif = get_exif_data(img)
             lat, lon = get_lat_lon(exif)
             if lat and lon:
-                st.session_state.e_lat, st.session_state.e_lon = lat, lon
-                st.session_state.e_addr = get_address_from_coords(lat, lon)
-                st.success(f"📍 GPS 데이터 추출 성공: {st.session_state.e_addr}")
+                if lat != st.session_state.e_lat or lon != st.session_state.e_lon:
+                    st.session_state.e_lat, st.session_state.e_lon = lat, lon
+                    st.session_state.e_addr = get_address_from_coords(lat, lon)
+                    st.rerun()
             photo.seek(0)
         except: pass
 
@@ -385,10 +386,13 @@ elif menu == "🚀 사고 제보 (Report)":
     if st.checkbox("🛰️ 위성 좌표 수신 허용 (Real-Time GPS)"):
         loc = streamlit_js_eval(data_of='get_location', key='gps_expert')
         if loc:
-            st.session_state.e_lat = loc['coords']['latitude']
-            st.session_state.e_lon = loc['coords']['longitude']
-            st.session_state.e_addr = get_address_from_coords(st.session_state.e_lat, st.session_state.e_lon)
-            st.success(f"✅ 현위치 위성 수신 완료: {st.session_state.e_addr}")
+            new_lat = loc['coords']['latitude']
+            new_lon = loc['coords']['longitude']
+            if new_lat != st.session_state.e_lat or new_lon != st.session_state.e_lon:
+                st.session_state.e_lat = new_lat
+                st.session_state.e_lon = new_lon
+                st.session_state.e_addr = get_address_from_coords(new_lat, new_lon)
+                st.rerun()
     
     # Move address input here for immediate reflection
     st.session_state.e_addr = st.text_input("📍 분석된 위치 (주소 직접 수정 가능)", value=st.session_state.e_addr)
