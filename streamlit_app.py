@@ -10,6 +10,7 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import io
 import requests
+import time
 from streamlit_js_eval import streamlit_js_eval
 
 # --- PROFESSIONAL PUBLISHING STANDARDS ---
@@ -426,6 +427,47 @@ elif menu == "⚙️ 통합 관제 (Admin)":
             st.download_button("📥 Export CSV Bundle", csv, "safety_db.csv", "text/csv")
         with col_ex2:
             st.button("🧹 Clear Test Records (Prototype)")
+
+        # --- AI Address Intelligence Recovery (Top 10 Tech #6 Extension) ---
+        st.markdown("---")
+        st.markdown("### 🤖 AI 스마트 주소 복구 (Intelligence Recovery)")
+        st.info("💡 제보 시 자동 주소 등록에 실패한 사례를 찾아 30초 간격으로 최대 3회 재분석을 시도합니다.")
+        
+        # Identify reports with coordinates but potentially missing/placeholder address
+        reports_to_fix = df[
+            (df['latitude'].notnull()) & 
+            (df['address'].str.contains('분석 중|좌표:', na=True))
+        ]
+        
+        if not reports_to_fix.empty:
+            st.warning(f"⚠️ 현재 {len(reports_to_fix)}건의 제보가 실시간 주소 보정이 필요합니다.")
+            if st.button("🛰️ AI 주소 분석 자동 시도 (30초 간격/3회)"):
+                for idx, row in reports_to_fix.iterrows():
+                    success = False
+                    for attempt in range(1, 4):
+                        st.write(f"⏳ ID {row['id']} 분석 중... (시도 {attempt}/3)")
+                        # Real address resolution simulation
+                        new_addr = get_address_from_coords(row['latitude'], row['longitude'])
+                        
+                        if "분석 중" not in new_addr and "좌표:" not in new_addr:
+                            # Success! Update DB
+                            c = conn.cursor()
+                            c.execute("UPDATE reports SET address = ?, updated_at = ? WHERE id = ?", 
+                                     (new_addr, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), int(row['id'])))
+                            conn.commit()
+                            st.success(f"✅ ID {row['id']} 주소 복구 성공: {new_addr}")
+                            success = True
+                            break
+                        
+                        if attempt < 3:
+                            time.sleep(30) # User requested 30s interval
+                    
+                    if not success:
+                        st.error(f"❌ ID {row['id']} 주소 복구 최종 실패 (3회 시도 완료)")
+                st.rerun()
+        else:
+            st.success("✅ 모든 제보의 주소 데이터가 최신 상태입니다 (AI 검증 완료).")
+
     elif pwd:
         st.error("비정상적인 접근입니다.")
 
